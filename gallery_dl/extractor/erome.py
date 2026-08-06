@@ -12,7 +12,7 @@ from .common import Extractor, Message
 from .. import text, util
 import itertools
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?erome\.com"
+BASE_PATTERN = r"(?:https?://)?(?:[\w-]+\.)?erome\.com"
 
 
 class EromeExtractor(Extractor):

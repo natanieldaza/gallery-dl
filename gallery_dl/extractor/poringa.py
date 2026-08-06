@@ -45,10 +45,10 @@ class PoringaExtractor(Extractor):
                 page, 'property="og:title" content="', '"')
 
             try:
-                pos = page.index('<div class="main-info', pos)
+                pos = page.index('<div class="main-info', pos or 0)
                 user, pos = text.extract(
                     page, 'href="http://www.poringa.net/', '"', pos)
-            except ValueError:
+            except (ValueError, TypeError):
                 user = None
 
             if not user:
@@ -56,7 +56,7 @@ class PoringaExtractor(Extractor):
 
             data = {
                 "post_id"      : post_id,
-                "title"        : text.unescape(title),
+                "title"        : text.unescape(title or ""),
                 "user"         : text.unquote(user),
                 "_http_headers": {"Referer": url},
             }

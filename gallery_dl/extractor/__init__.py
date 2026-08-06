@@ -243,6 +243,7 @@ modules = [
     "tiktok",
     "tmohentai",
     "toyhouse",
+    "threads",
     "tumblr",
     "tumblrgallery",
     "tungsten",

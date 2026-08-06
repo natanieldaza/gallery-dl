@@ -254,6 +254,17 @@ class InstagramExtractor(Extractor):
                 data["location_slug"] = slug
                 data["location_url"] = \
                     f"{self.root}/explore/locations/{location['pk']}/{slug}/"
+                
+                # Extract GPS coordinates if available
+                if "lat" in location and "lng" in location:
+                    data["location_latitude"] = location["lat"]
+                    data["location_longitude"] = location["lng"]
+                
+                # Extract additional location details
+                if "name" in location:
+                    data["location_name"] = location["name"]
+                if "address" in location:
+                    data["location_address"] = location["address"]
 
             if coauthors := post.get("coauthor_producers"):
                 data["coauthors"] = [
@@ -262,6 +273,46 @@ class InstagramExtractor(Extractor):
                      "full_name": user["full_name"]}
                     for user in coauthors
                 ]
+
+            # --- immich patch: enrichment parity with _parse_post_graphql ---
+            # The REST '/v1/media/{id}/info/' payload is richer per-media than the
+            # doc_id post query, but its user block has NO follower/post counts
+            # (those are profile-level — rolled into social_media via the profile
+            # path instead). Capture what IS here so REST-path sidecars match the
+            # GraphQL-path field shape.
+            u = post.get("user") or {}
+            if pic := (u.get("profile_pic_url") or
+                       (u.get("hd_profile_pic_url_info") or {}).get("url")):
+                data["owner_profile_pic"] = pic
+            if (fc := u.get("follower_count")) is not None:
+                data["owner_followers"] = fc
+            if (mc := u.get("media_count")) is not None:
+                data["owner_post_count"] = mc
+            data["is_paid_partnership"] = post.get("is_paid_partnership", False)
+            data["is_ad"] = post.get("is_ad", False)
+            data["is_affiliate"] = post.get("is_affiliate", False)
+            if (cc := post.get("comment_count")) is not None:
+                data["comment_count"] = cc
+            if alt := post.get("accessibility_caption"):
+                data["accessibility_caption"] = alt
+            # Comment bodies aren't reliably embedded in media-info (IG returns
+            # only `comment_count` + an often-empty `preview_comments`; full
+            # comments need a separate /comments/ call). Capture preview ones if
+            # present. NOTE: commenter ids/usernames are OTHER accounts — never
+            # auto-link them downstream.
+            comments = []
+            for node in (post.get("preview_comments") or ()):
+                cu = node.get("user") or {}
+                comments.append({
+                    "text"      : node.get("text"),
+                    "created_at": node.get("created_at"),
+                    "owner": {
+                        "id"      : cu.get("pk") or cu.get("id"),
+                        "username": cu.get("username"),
+                    },
+                })
+            if comments:
+                data["comments"] = comments
 
             if items := post.get("carousel_media"):
                 data["sidecar_media_id"] = data["post_id"]
@@ -348,10 +399,27 @@ class InstagramExtractor(Extractor):
                 "height_original": height_orig,
             }
 
+            # immich patch: per-slide alt-text + per-video view count (parity
+            # with the GraphQL parser). REST videos expose play_count/view_count.
+            if (alt := item.get("accessibility_caption")) is not None:
+                media["accessibility_caption"] = alt
+            if (vvc := item.get("play_count")) is not None or \
+                    (vvc := item.get("view_count")) is not None:
+                media["video_view_count"] = vvc
+
             if manifest is not None:
                 media["_ytdl_manifest_data"] = manifest
-            if "owner" in item:
-                media["owner"] = item["owner"]
+            # immich patch: keep a SLIM owner ref only. Upstream dumped the entire
+            # raw IG user dict (account_badges, fan_club_info, hd_profile_pic_versions,
+            # friendship_status, …) into every sidecar — ~80% noise that duplicated
+            # the post-level owner_id/username/fullname/owner_profile_pic. Trim to
+            # {id, username, full_name}, matching coauthors/tagged_users shape.
+            if owner_src := (item.get("owner") or post.get("user")):
+                media["owner"] = {
+                    "id"       : owner_src.get("pk") or owner_src.get("id"),
+                    "username" : owner_src.get("username"),
+                    "full_name": owner_src.get("full_name"),
+                }
             if "reshared_story_media_author" in item:
                 media["author"] = item["reshared_story_media_author"]
             if "expiring_at" in item:
@@ -437,6 +505,21 @@ class InstagramExtractor(Extractor):
         }
         data["date"] = data["post_date"]
 
+        # --- immich patch: owner stats snapshot (followers / post count / avatar) ---
+        # Present in every post's owner block; gallery-dl normally drops them. Lets the
+        # backfill roll live follower/post counts into social_media with no extra call.
+        if followed := owner.get("edge_followed_by"):
+            data["owner_followers"] = followed.get("count")
+        if timeline := owner.get("edge_owner_to_timeline_media"):
+            data["owner_post_count"] = timeline.get("count")
+        if pic := owner.get("profile_pic_url"):
+            data["owner_profile_pic"] = pic
+
+        # --- immich patch: sponsorship / ad flags ---
+        data["is_paid_partnership"] = post.get("is_paid_partnership", False)
+        data["is_ad"] = post.get("is_ad", False)
+        data["is_affiliate"] = post.get("is_affiliate", False)
+
         if tags := self._find_tags(data["description"]):
             data["tags"] = sorted(set(tags))
 
@@ -445,6 +528,26 @@ class InstagramExtractor(Extractor):
             data["location_slug"] = location["slug"]
             data["location_url"] = (f"{self.root}/explore/locations/"
                                     f"{location['id']}/{location['slug']}/")
+            
+            # Extract GPS coordinates if available
+            if "lat" in location and "lng" in location:
+                data["location_latitude"] = location["lat"]
+                data["location_longitude"] = location["lng"]
+            
+            # Extract additional location details
+            if "name" in location:
+                data["location_name"] = location["name"]
+            # immich patch: the real field is `address_json` (a JSON *string*), not
+            # `address`. Parse it for street/zip/city. Coordinates are NOT present in
+            # the post payload — they're resolved on-demand from location_id elsewhere.
+            if address := (location.get("address_json") or location.get("address")):
+                if isinstance(address, str):
+                    try:
+                        address = util.json.loads(address)
+                    except Exception:
+                        address = None
+                if address:
+                    data["location_address"] = address
 
         if coauthors := post.get("coauthor_producers"):
             data["coauthors"] = [
@@ -452,6 +555,27 @@ class InstagramExtractor(Extractor):
                  "username": user["username"]}
                 for user in coauthors
             ]
+
+        # --- immich patch: comments (already embedded in the post response) ---
+        # Keep a trimmed set: text + when + who. The response embeds only the first
+        # ~N (IG paginates the rest), so also store the true total `comment_count`.
+        # NOTE downstream: commenter ids/usernames are OTHER accounts — never auto-link.
+        if parent_comments := post.get("edge_media_to_parent_comment"):
+            data["comment_count"] = parent_comments.get("count")
+            comments = []
+            for edge in parent_comments.get("edges", ()):
+                node = edge.get("node") or {}
+                cowner = node.get("owner") or {}
+                comments.append({
+                    "text"      : node.get("text"),
+                    "created_at": node.get("created_at"),
+                    "owner": {
+                        "id"      : cowner.get("id"),
+                        "username": cowner.get("username"),
+                    },
+                })
+            if comments:
+                data["comments"] = comments
 
         data["_files"] = files = []
         if "edge_sidecar_to_children" in post:
@@ -471,12 +595,16 @@ class InstagramExtractor(Extractor):
                     "height"     : dimensions["height"],
                     "sidecar_media_id" : post["id"],
                     "sidecar_shortcode": post["shortcode"],
+                    # immich patch: per-slide alt-text + per-video view count
+                    "accessibility_caption": node.get("accessibility_caption"),
+                    "video_view_count": node.get("video_view_count"),
                 }
                 self._extract_tagged_users(node, media)
                 files.append(media)
         else:
             dimensions = post["dimensions"]
             media = {
+                "num"        : 1,
                 "media_id"   : post["id"],
                 "date"       : data["date"],
                 "shortcode"  : post["shortcode"],
@@ -484,6 +612,9 @@ class InstagramExtractor(Extractor):
                 "video_url"  : post.get("video_url"),
                 "width"      : dimensions["width"],
                 "height"     : dimensions["height"],
+                # immich patch: alt-text + per-video view count
+                "accessibility_caption": post.get("accessibility_caption"),
+                "video_view_count": post.get("video_view_count"),
             }
             self._extract_tagged_users(post, media)
             files.append(media)
@@ -491,37 +622,121 @@ class InstagramExtractor(Extractor):
         return data
 
     def _extract_tagged_users(self, src, dest):
+        """Extract tagged users with their position coordinates on the image.
+        
+        Position coordinates are normalized (0.0 to 1.0) where:
+        - x=0.0 is left edge, x=1.0 is right edge
+        - y=0.0 is top edge, y=1.0 is bottom edge
+        
+        Args:
+            src: Source data containing tag information
+            dest: Destination dictionary to store tagged user data
+        """
         dest["tagged_users"] = tagged_users = []
+        extract_positions = self.config("tagged-user-positions", True)
 
         if edges := src.get("edge_media_to_tagged_user"):
             for edge in edges["edges"]:
                 user = edge["node"]["user"]
-                tagged_users.append({"id"       : user["id"],
-                                     "username" : user["username"],
-                                     "full_name": user["full_name"]})
+                tagged_user = {
+                    "id"       : user["id"],
+                    "username" : user["username"],
+                    "full_name": user["full_name"]
+                }
+                
+                # Extract coordinates if available and enabled (GraphQL API)
+                if extract_positions and "x" in edge["node"] and "y" in edge["node"]:
+                    tagged_user["position"] = {
+                        "x": edge["node"]["x"],
+                        "y": edge["node"]["y"]
+                    }
+                
+                tagged_users.append(tagged_user)
 
         if usertags := src.get("usertags"):
             for tag in usertags["in"]:
                 user = tag["user"]
-                tagged_users.append({"id"       : user["pk"],
-                                     "username" : user["username"],
-                                     "full_name": user["full_name"]})
+                tagged_user = {
+                    "id"       : user["pk"],
+                    "username" : user["username"],
+                    "full_name": user["full_name"]
+                }
+                
+                # Extract coordinates from position data (REST API)
+                if extract_positions and "position" in tag and tag["position"]:
+                    tagged_user["position"] = {
+                        "x": tag["position"][0],  # x coordinate (0.0 to 1.0)
+                        "y": tag["position"][1]   # y coordinate (0.0 to 1.0)
+                    }
+                
+                tagged_users.append(tagged_user)
 
         if mentions := src.get("reel_mentions"):
             for mention in mentions:
                 user = mention["user"]
-                tagged_users.append({"id"       : user.get("pk"),
-                                     "username" : user["username"],
-                                     "full_name": user["full_name"]})
+                tagged_user = {
+                    "id"       : user.get("pk"),
+                    "username" : user["username"],
+                    "full_name": user["full_name"]
+                }
+                
+                # Extract mention position for stories/reels
+                if extract_positions and "x" in mention and "y" in mention:
+                    tagged_user["position"] = {
+                        "x": mention["x"],
+                        "y": mention["y"]
+                    }
+                    
+                    # Extract additional mention metadata
+                    if "width" in mention and "height" in mention:
+                        tagged_user["dimensions"] = {
+                            "width": mention["width"],
+                            "height": mention["height"]
+                        }
+                        
+                    if "rotation" in mention:
+                        tagged_user["rotation"] = mention["rotation"]
+                    
+                tagged_users.append(tagged_user)
 
         if stickers := src.get("story_bloks_stickers"):
             for sticker in stickers:
                 sticker = sticker["bloks_sticker"]
                 if sticker["bloks_sticker_type"] == "mention":
                     user = sticker["sticker_data"]["ig_mention"]
-                    tagged_users.append({"id"       : user["account_id"],
-                                         "username" : user["username"],
-                                         "full_name": user["full_name"]})
+                    tagged_user = {
+                        "id"       : user["account_id"],
+                        "username" : user["username"],
+                        "full_name": user["full_name"]
+                    }
+                    
+                    # Extract sticker position
+                    if extract_positions and "x" in sticker and "y" in sticker:
+                        tagged_user["position"] = {
+                            "x": sticker["x"],
+                            "y": sticker["y"]
+                        }
+                        
+                        # Extract sticker dimensions
+                        if "width" in sticker and "height" in sticker:
+                            tagged_user["dimensions"] = {
+                                "width": sticker["width"],
+                                "height": sticker["height"]
+                            }
+                            
+                        if "rotation" in sticker:
+                            tagged_user["rotation"] = sticker["rotation"]
+                        
+                    tagged_users.append(tagged_user)
+
+    def _is_reel(self, post):
+        product_type = post.get("product_type") or post.get(
+            "media_product_type")
+        return (
+            product_type == "clips" or
+            post.get("subtype_name_for_REST__") == "XDTClipsMedia" or
+            "clips_metadata" in post
+        )
 
     def _is_reel(self, post):
         product_type = post.get("product_type") or post.get(
@@ -898,6 +1113,29 @@ class InstagramTagExtractor(InstagramExtractor):
         return self.api.tags_media(self.item)
 
 
+class InstagramLocationExtractor(InstagramExtractor):
+    """Extractor for Instagram location pages"""
+    subcategory = "location"
+    directory_fmt = ("{category}", "{subcategory}", "{location_name|location_id}")
+    pattern = BASE_PATTERN + r"/explore/locations/(\d+)/([^/?#]+)"
+    example = "https://www.instagram.com/explore/locations/1987805821318734/varadero-beach/"
+
+    def __init__(self, match):
+        InstagramExtractor.__init__(self, match)
+        self.location_id = match[1]
+        self.location_slug = match[2]
+
+    def metadata(self):
+        return {
+            "location_id": self.location_id,
+            "location_slug": self.location_slug,
+            "location_name": self.location_slug.replace("-", " ").title(),
+        }
+
+    def posts(self):
+        return self.api.location_media(self.location_id)
+
+
 class InstagramInfoExtractor(InstagramExtractor):
     """Extractor for an Instagram user's profile data"""
     subcategory = "info"
@@ -999,10 +1237,44 @@ class InstagramRestAPI():
         return self._call(endpoint)["tray"]
 
     def media(self, shortcode):
-        if len(shortcode) > 28:
-            shortcode = shortcode[:-28]
-        endpoint = f"/v1/media/{id_from_shortcode(shortcode)}/info/"
-        return self._pagination(endpoint)
+        # PRIMARY: REST '/v1/media/{id}/info/'. This endpoint was briefly gated
+        # (302 -> logged-out home), which is why the doc_id GraphQL query was
+        # used instead; that doc_id has since rotated and now returns throttled
+        # empty responses ('execution error' / data:null, HTTP 200, ~90 bytes),
+        # so single-post downloads broke. REST works again, so it is primary;
+        # the doc_id query is kept as a fallback (refresh _POST_DOC_ID to
+        # re-enable the richer GraphQL parse). The per-post parser is chosen by
+        # payload shape ('__typename'), so REST items route to _parse_post_rest
+        # and a doc_id result routes to _parse_post_graphql automatically.
+        if shortcode.isdigit():
+            # Re-fetch path (e.g. video/sidecar) passes a numeric media id.
+            media_id = shortcode
+        else:
+            sc = shortcode[:-28] if len(shortcode) > 28 else shortcode
+            media_id = id_from_shortcode(sc)
+        try:
+            items = list(self._pagination(f"/v1/media/{media_id}/info/"))
+            if items:
+                return items
+        except Exception as exc:
+            self.extractor.log.debug(
+                "instagram REST media() failed for %s (%s); "
+                "falling back to doc_id GraphQL", shortcode, exc)
+
+        # FALLBACK: modern doc_id GraphQL query (same 'shortcode_media' shape
+        # the GraphQL parser handles once 'XDT' typename prefixes are stripped).
+        sc = shortcode_from_id(shortcode) if shortcode.isdigit() else (
+            shortcode[:-28] if len(shortcode) > 28 else shortcode)
+        data = {
+            "doc_id"   : _POST_DOC_ID,
+            "variables": util.json_dumps({"shortcode": sc}),
+        }
+        response = self._call(
+            "https://www.instagram.com/graphql/query", method="POST", data=data)
+        post = (response.get("data") or {}).get("xdt_shortcode_media")
+        if not post:
+            return ()
+        return (_strip_xdt_typenames(post),)
 
     def reels_media(self, reel_ids):
         endpoint = "/v1/feed/reels_media/"
@@ -1023,6 +1295,24 @@ class InstagramRestAPI():
 
     def tags_sections(self, tag):
         endpoint = f"/v1/tags/{tag}/sections/"
+        data = {
+            "include_persistent": "0",
+            "max_id" : None,
+            "page"   : None,
+            "surface": "grid",
+            "tab"    : "recent",
+        }
+        return self._pagination_sections(endpoint, data)
+
+    def location_media(self, location_id):
+        """Fetch media from a specific location"""
+        for section in self.location_sections(location_id):
+            for media in section["layout_content"]["medias"]:
+                yield media["media"]
+
+    def location_sections(self, location_id):
+        """Fetch location sections data"""
+        endpoint = f"/v1/locations/{location_id}/sections/"
         data = {
             "include_persistent": "0",
             "max_id" : None,
@@ -1384,6 +1674,31 @@ def id_from_shortcode(shortcode):
 
 def shortcode_from_id(post_id):
     return util.bencode(int(post_id), _ALPHABET)
+
+
+# doc_id for Instagram's PolarisPostActionLoadPostQueryQuery (fetch a single
+# post by shortcode). Instagram rotates these every so often; if single-post
+# downloads start failing with an HTTP/GraphQL error, open the post in a browser
+# and grab the current 'doc_id' from the /graphql/query request in DevTools.
+_POST_DOC_ID = "8845758582119845"
+
+
+def _strip_xdt_typenames(media):
+    # The doc_id GraphQL response prefixes media typenames with 'XDT'
+    # (XDTGraphImage / XDTGraphSidecar / XDTGraphVideo). The existing GraphQL
+    # post parser keys off the legacy names (GraphSidecar, etc.), so normalize
+    # the top-level node and any sidecar children back to those.
+    typename = media.get("__typename")
+    if typename and typename.startswith("XDT"):
+        media["__typename"] = typename[3:]
+    children = media.get("edge_sidecar_to_children")
+    if children:
+        for edge in children.get("edges", ()):
+            node = edge.get("node") or {}
+            child_typename = node.get("__typename")
+            if child_typename and child_typename.startswith("XDT"):
+                node["__typename"] = child_typename[3:]
+    return media
 
 
 _ALPHABET = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"

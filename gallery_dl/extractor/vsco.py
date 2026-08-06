@@ -10,6 +10,14 @@
 
 from .common import Extractor, Message, Dispatch
 from .. import text, util
+import http.cookiejar
+
+# Try to import curl_cffi for Cloudflare bypass
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?vsco\.co"
 USER_PATTERN = BASE_PATTERN + r"/([^/?#]+)"
@@ -28,6 +36,103 @@ class VscoExtractor(Extractor):
     def __init__(self, match):
         Extractor.__init__(self, match)
         self.user = match[1].lower()
+
+    def request(self, url, **kwargs):
+        """Override request method to use curl_cffi for Cloudflare bypass"""
+        if not HAS_CURL_CFFI:
+            # Fall back to standard request method
+            return Extractor.request(self, url, **kwargs)
+        
+        # Use curl_cffi with browser impersonation to bypass Cloudflare
+        try:
+            # Load cookies if configured
+            cookie_file = self.config("cookies")
+            cookies_dict = {}
+            
+            if cookie_file:
+                try:
+                    jar = http.cookiejar.MozillaCookieJar(cookie_file)
+                    jar.load(ignore_discard=True, ignore_expires=True)
+                    cookies_dict = {cookie.name: cookie.value for cookie in jar}
+                    self.log.debug(f"Loaded {len(cookies_dict)} cookies from {cookie_file}")
+                except Exception as e:
+                    self.log.warning(f"Failed to load cookies: {e}")
+            
+            # Get headers from kwargs
+            headers = kwargs.get('headers', {})
+            
+            # Make request with Firefox TLS impersonation
+            self.log.debug(f"Using curl_cffi (Firefox 135) for URL: {url}")
+            response = cffi_requests.get(
+                url,
+                cookies=cookies_dict,
+                headers=headers,
+                impersonate="firefox135",  # Bypass Cloudflare TLS fingerprinting
+                timeout=kwargs.get('timeout', 30),
+                allow_redirects=kwargs.get('allow_redirects', True)
+            )
+            
+            # Fix VSCO's JavaScript undefined values → null for valid JSON
+            response_text = response.text.replace(':undefined', ':null')
+            
+            # Create response wrapper compatible with gallery-dl
+            class ResponseWrapper:
+                def __init__(self, cffi_resp, fixed_text):
+                    self._response = cffi_resp
+                    self.status_code = cffi_resp.status_code
+                    self.headers = cffi_resp.headers
+                    self.text = fixed_text
+                    self.content = cffi_resp.content
+                    self.url = cffi_resp.url
+                    
+                def json(self):
+                    return self._response.json()
+            
+            return ResponseWrapper(response, response_text)
+            
+        except Exception as e:
+            self.log.warning(f"curl_cffi request failed: {e}, falling back to standard request")
+            # Fall back to standard request on error
+            return Extractor.request(self, url, **kwargs)
+
+    def request_json(self, url, **kwargs):
+        """Override request_json to use curl_cffi for API calls"""
+        if not HAS_CURL_CFFI:
+            return Extractor.request(self, url, **kwargs).json()
+        
+        try:
+            # Load cookies
+            cookie_file = self.config("cookies")
+            cookies_dict = {}
+            
+            if cookie_file:
+                try:
+                    jar = http.cookiejar.MozillaCookieJar(cookie_file)
+                    jar.load(ignore_discard=True, ignore_expires=True)
+                    cookies_dict = {cookie.name: cookie.value for cookie in jar}
+                except Exception:
+                    pass
+            
+            # Get headers and params from kwargs
+            headers = kwargs.get('headers', {})
+            params = kwargs.get('params', {})
+            
+            # Make JSON request with Firefox TLS impersonation
+            self.log.debug(f"Using curl_cffi (Firefox 135) for JSON API: {url}")
+            response = cffi_requests.get(
+                url,
+                cookies=cookies_dict,
+                headers=headers,
+                params=params,
+                impersonate="firefox135",
+                timeout=kwargs.get('timeout', 30)
+            )
+            
+            return response.json()
+            
+        except Exception as e:
+            self.log.warning(f"curl_cffi JSON request failed: {e}, falling back")
+            return Extractor.request(self, url, **kwargs).json()
 
     def items(self):
         videos = self.config("videos", True)
@@ -79,7 +184,19 @@ class VscoExtractor(Extractor):
         """Return an iterable with all relevant image objects"""
 
     def _extract_preload_state(self, url):
-        page = self.request(url, notfound=self.subcategory).text
+        # immich patch: browser-like headers to reduce VSCO gating
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+        }
+        page = self.request(url, headers=headers, notfound=self.subcategory).text
         data = util.json_loads(text.extr(page, "__PRELOADED_STATE__ = ", "<")
                                .replace('":undefined', '":null'))
         self._tkn = data["users"]["currentUser"]["tkn"]

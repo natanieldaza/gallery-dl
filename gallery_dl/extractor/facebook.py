@@ -536,6 +536,94 @@ class FacebookVideoExtractor(FacebookExtractor):
                 yield Message.Url, audio["url"], audio
 
 
+class FacebookReelExtractor(FacebookExtractor):
+    """Extractor for Facebook Reels"""
+    subcategory = "reel"
+    directory_fmt = ("{category}", "{username}", "{subcategory}")
+    pattern = BASE_PATTERN + r"/reel/([^/?&#]+)"
+    example = "https://www.facebook.com/reel/1508490703517921"
+
+    def items(self):
+        reel_id = self.groups[0]
+        # Try to convert reel URL to video URL format
+        video_url = self.root + "/watch/?v=" + reel_id
+        
+        try:
+            video_page = self.request(video_url).text
+            video, audio = self.parse_video_page(video_page)
+
+            if "url" not in video:
+                # If video format doesn't work, try reel-specific parsing
+                reel_url = self.root + "/reel/" + reel_id
+                reel_page = self.request(reel_url).text
+                video, audio = self.parse_reel_page(reel_page, reel_id)
+
+            if "url" not in video:
+                return
+
+            yield Message.Directory, video
+
+            if self.videos == "ytdl":
+                yield Message.Url, "ytdl:" + self.root + "/reel/" + reel_id, video
+            elif self.videos:
+                yield Message.Url, video["url"], video
+                if audio and audio.get("url"):
+                    yield Message.Url, audio["url"], audio
+                    
+        except Exception as e:
+            self.log.warning("Failed to extract reel %s: %s", reel_id, e)
+            return
+
+    def parse_reel_page(self, reel_page, reel_id):
+        """Parse Facebook reel page to extract video information"""
+        video = {
+            "id": reel_id,
+            "username": self.decode_all(text.extr(
+                reel_page, '"actors":[{"__typename":"User","name":"', '","'
+            )) or self.decode_all(text.extr(
+                reel_page, '"owner":{"__typename":"User","name":"', '"'
+            )),
+            "user_id": text.extr(
+                reel_page, '"owner":{"__typename":"User","id":"', '"'
+            ),
+            "date": text.parse_timestamp(text.extr(
+                reel_page, '"publish_time":', ','
+            ) or text.extr(
+                reel_page, '"created_time":', ','
+            )),
+            "type": "reel"
+        }
+
+        # Try to extract video URL from reel page
+        video_url = None
+        
+        # Look for video URLs in various formats found in reels
+        for pattern in [
+            r'"playable_url":"([^"]+)"',
+            r'"src":"([^"]+\.mp4[^"]*)"',
+            r'"video_url":"([^"]+)"',
+            r'"url":"([^"]+\.mp4[^"]*)"'
+        ]:
+            import re
+            match = re.search(pattern, reel_page)
+            if match:
+                video_url = self.decode_all(match.group(1))
+                break
+
+        if video_url:
+            video["url"] = video_url
+            text.nameext_from_url(video["url"], video)
+        
+        # Basic audio extraction (may not always be available for reels)
+        audio = {
+            **video,
+            "type": "audio",
+            "extension": "m4a"
+        }
+        
+        return video, audio
+
+
 class FacebookInfoExtractor(FacebookExtractor):
     """Extractor for Facebook Profile data"""
     subcategory = "info"
@@ -588,14 +676,20 @@ class FacebookPhotosExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/photos"
 
     def items(self):
-        set_id = self.cache(
-            self._extract_profile, self.groups[0], True)["set_id"]
+        profile = self.cache(self._extract_profile, self.groups[0], True)
+        set_id = profile["set_id"]
         if not set_id:
             return iter(())
 
         set_url = f"{self.root}/media/set/?set={set_id}"
         set_page = self.request(set_url).text
         set_data = self.parse_set_page(set_page)
+        # Prefer the profile's vanity handle (e.g. "gladys.taquitos") over the set
+        # page's display name ("Gladys Taquitos") so files land in a handle-named
+        # folder, matching immich's social_media handle / folder lookup.
+        vanity = profile.get("username")
+        if vanity:
+            set_data["username"] = vanity
         return self.extract_set(set_data)
 
 
