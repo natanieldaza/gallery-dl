@@ -122,10 +122,14 @@ class OnlyhavenUserExtractor(OnlyhavenExtractor):
         service, self.creator_id, query = self.groups
         params = text.parse_query(query)
 
-        return self.api.creator_posts(
-            service, self.creator_id,
-            params.get("o"), params.get("q"),
-            params.get("type"), params.get("sort"))
+        if self.config("endpoint") in {"posts+", "legacy+"}:
+            endpoint = self.api.creator_posts_expand
+        else:
+            endpoint = self.api.creator_posts
+
+        return endpoint(service, self.creator_id,
+                        params.get("o"), params.get("q"),
+                        params.get("type"), params.get("sort"))
 
 
 class OnlyhavenPostExtractor(OnlyhavenExtractor):
@@ -181,6 +185,12 @@ class OnlyhavenAPI():
         endpoint = f"/v1/{service}/user/{creator_id}/posts"
         params = {"o": offset, "q": query, "type": type, "sort": sort}
         return self._pagination(endpoint, params, 50, "posts")
+
+    def creator_posts_expand(self, service, creator_id,
+                             offset=0, query=None, type=None, sort=None):
+        for post in self.creator_posts(
+                service, creator_id, offset, query, type, sort):
+            yield self.creator_post(service, creator_id, post["id"])
 
     def creator_dms(self, service, creator_id):
         endpoint = f"/v1/{service}/user/{creator_id}/dms"

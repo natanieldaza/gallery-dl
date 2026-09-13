@@ -1010,7 +1010,8 @@ Default
         ``twitter``    |
         ``vsco``
     ``"chrome"``
-        ``comicartfans``
+        ``comicartfans`` |
+        ``instagram``
     ``null``
         otherwise
 Example
@@ -4078,21 +4079,6 @@ Description
     for details)
 
 
-extractor.instagram.api
------------------------
-Type
-    ``string``
-Default
-    ``"rest"``
-Description
-    Selects which API endpoints to use.
-
-    ``"rest"``
-        REST API - higher-resolution media
-    ``"graphql"``
-        GraphQL API - lower-resolution media
-
-
 extractor.instagram.audio
 -------------------------
 Type
@@ -5264,6 +5250,22 @@ Note
     of the port specified here. You'll have to manually adjust the
     port number in your browser's address bar when using a different
     port than the default.
+
+
+extractor.onlyhaven.endpoint
+----------------------------
+Type
+    ``string``
+Default
+    ``"posts"``
+Description
+    API endpoint to use when retrieving creator posts.
+
+    ``"posts"`` | ``"legacy"``
+        Provide regular metadata
+    ``"posts+"`` | ``"legacy+"``
+        Provide full metadata
+        by using an additional API request to fetch individual post data
 
 
 extractor.pawchive.archives

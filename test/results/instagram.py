@@ -75,14 +75,6 @@ __tests__ = (
 },
 
 {
-    "#url"     : "https://www.instagram.com/kadakaofficial/guide/knit-i-need-collection/18131821684305217/",
-    "#category": ("", "instagram", "guide"),
-    "#class"   : instagram.InstagramGuideExtractor,
-    "#range"   : "1-16",
-    "#count"   : ">= 16",
-},
-
-{
     "#url"     : "https://www.instagram.com/instagram/saved/",
     "#category": ("", "instagram", "saved"),
     "#class"   : instagram.InstagramSavedExtractor,
