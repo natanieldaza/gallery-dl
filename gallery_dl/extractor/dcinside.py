@@ -31,6 +31,7 @@ class DcinsideGalleryExtractor(GalleryExtractor):
 
         return {
             "id"      : text.parse_int(params.get("no")),
+            "board"   : params.get("id"),
             "title"   : extr('"headline":"', '",\r'),
             "content" : extr('"articleBody":"', '",\r'),
             "date"    : self.parse_datetime_iso(extr(
@@ -45,10 +46,12 @@ class DcinsideGalleryExtractor(GalleryExtractor):
         }
 
     def images(self, page):
-        if box := text.extr(page, 'class="writing_view_box', "\t</div>"):
+        if write_div := text.extr(page, 'class="write_div', "</div>"):
             results = []
-            for img in text.extract_iter(box, "<img", ">"):
-                url = text.unescape(text.extr(img, ' src="', '"'))
+            for img in text.extract_iter(write_div, "<img", ">"):
+                url = text.unescape(text.extr(img, ' data-original="', '"') or
+                                    text.extr(img, ' src="', '"') or
+                                    text.extr(img, " src='", "'"))
                 results.append((url, {
                     "hash"     : text.extr(img, ' alt="', '"'),
                     "extension": "jpg",

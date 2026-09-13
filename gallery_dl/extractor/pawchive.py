@@ -187,17 +187,18 @@ class PawchiveExtractor(Extractor):
                     else:
                         post_archives.append(archive)
 
+                file["file_id"] = file.pop("id", None)
                 files.append(file)
 
             post["count"] = len(files)
             yield Message.Directory, "", post
             if original:
                 for post["num"], file in enumerate(files, 1):
-                    if "id" in file:
-                        del file["id"]
                     if not file.get("preview_only"):
                         url = file["url"]
                         file["original"] = True
+                        if previews:
+                            file["_fallback"] = (root_thmb + file["path"],)
                     elif previews:
                         url = root_thmb + file["path"]
                         file["extension"] = "webp"
@@ -212,8 +213,6 @@ class PawchiveExtractor(Extractor):
                 for post["num"], file in enumerate(files, 1):
                     if file["extension"] in exts_thmb:
                         file["extension"] = "webp"
-                        if "id" in file:
-                            del file["id"]
                         post.update(file)
                         post["original"] = False
                         yield Message.Url, root_thmb + file["path"], post
@@ -327,6 +326,17 @@ class PawchiveExtractor(Extractor):
             att.pop("name", None)
         return util.sha1(util.json_dumps(rev))
 
+    def _expand(self, posts):
+        if self.config("expand") or \
+                self.config("endpoint") in {"posts+", "legacy+"}:
+            def gen():
+                creator_post = self.api.creator_post
+                for post in posts:
+                    yield creator_post(
+                        post["service"], post["user"], post["id"])
+            return gen()
+        return posts
+
 
 class PawchiveUserExtractor(PawchiveExtractor):
     """Extractor for all posts from a pawchive user listing"""
@@ -342,13 +352,9 @@ class PawchiveUserExtractor(PawchiveExtractor):
         service, creator_id, query = self.groups
         params = text.parse_query(query)
 
-        if self.config("endpoint") in {"posts+", "legacy+"}:
-            endpoint = self.api.creator_posts_expand
-        else:
-            endpoint = self.api.creator_posts
-
-        return endpoint(service, creator_id,
-                        params.get("o"), params.get("q"), params.get("tag"))
+        return self._expand(self.api.creator_posts(
+            service, creator_id,
+            params.get("o"), params.get("q"), params.get("tag")))
 
 
 class PawchivePostExtractor(PawchiveExtractor):
@@ -386,8 +392,8 @@ class PawchivePostsExtractor(PawchiveExtractor):
 
     def posts(self):
         params = text.parse_query(self.groups[0])
-        return self.api.posts(
-            params.get("o"), params.get("q"), params.get("tag"))
+        return self._expand(self.api.posts(
+            params.get("o"), params.get("q"), params.get("tag")))
 
 
 class PawchiveFavoriteExtractor(PawchiveExtractor):
@@ -512,12 +518,6 @@ class PawchiveAPI():
         endpoint = f"/v1/{service}/user/{creator_id}"
         params = {"o": offset, "tag": tags, "q": query}
         return self._pagination(endpoint, params, 50)
-
-    def creator_posts_expand(self, service, creator_id,
-                             offset=0, query=None, tags=None):
-        for post in self.creator_posts(
-                service, creator_id, offset, query, tags):
-            yield self.creator_post(service, creator_id, post["id"])
 
     def creator_announcements(self, service, creator_id):
         endpoint = f"/v1/{service}/user/{creator_id}/announcements"

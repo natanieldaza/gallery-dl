@@ -132,6 +132,17 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://cum.st/creators/patreon/11197406/post/169391994",
+    "#comment" : "'caption': null (#441)",
+    "#category": ("", "onlyhaven", "patreon"),
+    "#class"   : onlyhaven.OnlyhavenPostExtractor,
+    "#count"   : 0,
+    "#log"     : "169391994/0: 'Locked' file",
+
+    "title": "",
+},
+
+{
     "#url"     : "https://cum.st/creators/fansly/365239425979916288",
     "#category": ("", "onlyhaven", "fansly"),
     "#class"   : onlyhaven.OnlyhavenUserExtractor,

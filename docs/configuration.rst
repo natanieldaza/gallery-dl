@@ -4588,20 +4588,17 @@ Description
     Extract a user's announcements as ``announcements`` metadata.
 
 
-extractor.kemono.endpoint
--------------------------
+extractor.kemono.expand
+-----------------------
 Type
-    ``string``
+    ``bool``
 Default
-    ``"posts"``
+    ``false``
 Description
-    API endpoint to use for retrieving creator posts.
+    Provide complete post metadata
+    by fetching extra data with an additional API request for each post.
 
-    ``"posts"`` | ``"legacy"``
-        Provides only limited metadata.
-    ``"posts+"`` | ``"legacy+"``
-        Provides full metadata,
-        but requires an additional API request for each post.
+    Includes ``captions``, ``content``, ``embed``, ``poll``, ``tags``,
 
 
 extractor.kemono.favorites
@@ -5252,20 +5249,40 @@ Note
     port than the default.
 
 
-extractor.onlyhaven.endpoint
-----------------------------
+extractor.onlyhaven.domain
+--------------------------
 Type
     ``string``
 Default
-    ``"posts"``
+    ``null``
 Description
-    API endpoint to use when retrieving creator posts.
+    Specifies the domain used by ``onlyhaven`` extractors.
 
-    ``"posts"`` | ``"legacy"``
-        Provide regular metadata
-    ``"posts+"`` | ``"legacy+"``
-        Provide full metadata
-        by using an additional API request to fetch individual post data
+    Setting this option to ``"auto"``
+    uses the same domain as the given input URL.
+
+
+extractor.onlyhaven.expand
+--------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Provide complete ``creator`` post metadata
+    by fetching extra data with an additional API request for each post.
+
+    Includes ``originalFilename``, ``comments``, ``links``, ``tags``,
+
+
+extractor.onlyhaven.metadata
+----------------------------
+Type
+    ``bool``
+Default
+    ``true``
+Description
+    Extract ``username`` and ``user_profile`` metadata.
 
 
 extractor.pawchive.archives
@@ -5346,20 +5363,15 @@ Description
         | Ignore it otherwise
 
 
-extractor.pawchive.endpoint
----------------------------
+extractor.pawchive.expand
+-------------------------
 Type
-    ``string``
+    ``bool``
 Default
-    ``"posts"``
+    ``false``
 Description
-    API endpoint to use when retrieving creator posts.
-
-    ``"posts"`` | ``"legacy"``
-        Provide regular metadata
-    ``"posts+"`` | ``"legacy+"``
-        Provide full metadata
-        by using an additional API request to fetch individual post data
+    Provide complete post metadata
+    by fetching extra data with an additional API request for each post.
 
 
 extractor.pawchive.favorites
@@ -5427,7 +5439,8 @@ Type
 Default
     ``false``
 Description
-    Download thumbnails/previews for files marked as ``preview_only``..
+    | Download thumbnails/previews for files marked as ``preview_only`` and
+    | provide preview fallbacks for original files.
 
 
 extractor.pawchive.revisions
@@ -6943,11 +6956,19 @@ Note
 extractor.tiktok.videos
 -----------------------
 Type
-    ``bool``
+    * ``bool``
+    * ``string``
 Default
     ``true``
 Description
-    Download videos using |ytdl|.
+    Controls video download behavior.
+
+    ``true``
+        Download videos
+    ``"ytdl"``
+        Download videos using |ytdl|
+    ``false``
+        Ignore videos
 
 
 extractor.tiktok.tiktok-range

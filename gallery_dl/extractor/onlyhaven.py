@@ -55,8 +55,8 @@ class OnlyhavenExtractor(Extractor):
                 post["title"] = text.unescape(text.remove_html(
                     chtml.partition("\n")[0]))
             else:
-                post["title"] = post.get(
-                    "caption", "").partition("\n")[0].strip()
+                post["title"] = (post.get(
+                    "caption") or "").partition("\n")[0].strip()
 
             if creator_info is not None:
                 key = f"{service}_{creator_id}"
@@ -107,6 +107,19 @@ class OnlyhavenExtractor(Extractor):
                 post.update(file)
                 yield Message.Url, file["url"], post
 
+    def _expand(self, posts):
+        if self.config("expand") or \
+                self.config("endpoint") in {"posts+", "legacy+"}:
+            def gen():
+                creator_post = self.api.creator_post
+                creator_id = self.creator_id
+                for post in posts:
+                    yield creator_post(post["service"],
+                                       post.get("creatorId") or creator_id,
+                                       post["id"])
+            return gen()
+        return posts
+
 
 class OnlyhavenUserExtractor(OnlyhavenExtractor):
     """Extractor for all posts from a onlyhaven user listing"""
@@ -122,14 +135,9 @@ class OnlyhavenUserExtractor(OnlyhavenExtractor):
         service, self.creator_id, query = self.groups
         params = text.parse_query(query)
 
-        if self.config("endpoint") in {"posts+", "legacy+"}:
-            endpoint = self.api.creator_posts_expand
-        else:
-            endpoint = self.api.creator_posts
-
-        return endpoint(service, self.creator_id,
-                        params.get("o"), params.get("q"),
-                        params.get("type"), params.get("sort"))
+        return self._expand(self.api.creator_posts(
+            service, self.creator_id, params.get("o"),
+            params.get("q"), params.get("type"), params.get("sort")))
 
 
 class OnlyhavenPostExtractor(OnlyhavenExtractor):
@@ -156,9 +164,9 @@ class OnlyhavenPostsExtractor(OnlyhavenExtractor):
     def posts(self):
         self.creator_id = 0
         params = text.parse_query(self.groups[0])
-        return self.api.posts(
+        return self._expand(self.api.posts(
             params.get("o"), params.get("q"),
-            params.get("service"), params.get("type"), params.get("sort"))
+            params.get("service"), params.get("type"), params.get("sort")))
 
 
 class OnlyhavenAPI():
@@ -185,12 +193,6 @@ class OnlyhavenAPI():
         endpoint = f"/v1/{service}/user/{creator_id}/posts"
         params = {"o": offset, "q": query, "type": type, "sort": sort}
         return self._pagination(endpoint, params, 50, "posts")
-
-    def creator_posts_expand(self, service, creator_id,
-                             offset=0, query=None, type=None, sort=None):
-        for post in self.creator_posts(
-                service, creator_id, offset, query, type, sort):
-            yield self.creator_post(service, creator_id, post["id"])
 
     def creator_dms(self, service, creator_id):
         endpoint = f"/v1/{service}/user/{creator_id}/dms"
