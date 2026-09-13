@@ -40,6 +40,9 @@ class InstagramExtractor(Extractor):
         self._logged_in = True
         self._cursor = None
         self._user = None
+        # Discovered lazily on the first single-post fallback and reused for the
+        # whole run. None = not looked up yet, "" = looked up and not found.
+        self._post_doc_id = None
 
         self.cookies.set(
             "csrftoken", self.csrf_token, domain=self.cookies_domain)
@@ -249,7 +252,17 @@ class InstagramExtractor(Extractor):
                 data["tags"] = sorted(set(tags))
 
             if location := post.get("location"):
-                slug = location["short_name"].replace(" ", "-").lower()
+                # `short_name` exists in the REST /v1/media/info payload but NOT in the
+                # PolarisPostRootQuery one, whose location carries only
+                # __typename/lat/lng/name/pk/profile_pic_url. Indexing it killed the whole
+                # download with KeyError the moment a post had a location — and since that
+                # query is now the fallback for every single-post fetch, only posts WITHOUT
+                # a location survived. Fall back to `name`, which is always present, then to
+                # the pk so the slug is never empty.
+                short_name = (location.get("short_name") or
+                              location.get("name") or
+                              str(location.get("pk", "")))
+                slug = short_name.replace(" ", "-").lower()
                 data["location_id"] = location["pk"]
                 data["location_slug"] = slug
                 data["location_url"] = \
@@ -728,15 +741,6 @@ class InstagramExtractor(Extractor):
                             tagged_user["rotation"] = sticker["rotation"]
                         
                     tagged_users.append(tagged_user)
-
-    def _is_reel(self, post):
-        product_type = post.get("product_type") or post.get(
-            "media_product_type")
-        return (
-            product_type == "clips" or
-            post.get("subtype_name_for_REST__") == "XDTClipsMedia" or
-            "clips_metadata" in post
-        )
 
     def _is_reel(self, post):
         product_type = post.get("product_type") or post.get(
@@ -1246,35 +1250,141 @@ class InstagramRestAPI():
         # re-enable the richer GraphQL parse). The per-post parser is chosen by
         # payload shape ('__typename'), so REST items route to _parse_post_rest
         # and a doc_id result routes to _parse_post_graphql automatically.
+        #
+        # Gating is an account/IP-wide state, not a per-post one, so once a
+        # 302-to-home is seen there is nothing to gain from asking again for
+        # every remaining post: each attempt is a wasted round-trip that also
+        # counts against whatever budget produced the gate. The verdict is
+        # therefore remembered in gallery-dl's persistent cache (see
+        # _rest_media_gated) — every download runs in its own process, so an
+        # in-memory flag would be forgotten between posts.
         if shortcode.isdigit():
             # Re-fetch path (e.g. video/sidecar) passes a numeric media id.
             media_id = shortcode
         else:
             sc = shortcode[:-28] if len(shortcode) > 28 else shortcode
             media_id = id_from_shortcode(sc)
-        try:
-            items = list(self._pagination(f"/v1/media/{media_id}/info/"))
-            if items:
-                return items
-        except Exception as exc:
+        if self._rest_media_gated():
             self.extractor.log.debug(
-                "instagram REST media() failed for %s (%s); "
-                "falling back to doc_id GraphQL", shortcode, exc)
+                "instagram REST media() skipped for %s (gate remembered from "
+                "an earlier run); going straight to doc_id GraphQL", shortcode)
+        else:
+            try:
+                items = list(self._pagination(f"/v1/media/{media_id}/info/"))
+                if items:
+                    return items
+            except Exception as exc:
+                # Only the gate signature latches. A 404 on a deleted post or a
+                # transient network error must not disable REST for a day.
+                if _REST_GATED_RE(str(exc)):
+                    self._mark_rest_media_gated()
+                self.extractor.log.debug(
+                    "instagram REST media() failed for %s (%s); "
+                    "falling back to doc_id GraphQL", shortcode, exc)
 
-        # FALLBACK: modern doc_id GraphQL query (same 'shortcode_media' shape
-        # the GraphQL parser handles once 'XDT' typename prefixes are stripped).
+        # FALLBACK: the same GraphQL query the web client itself runs for a post
+        # page, PolarisPostRootQuery. Its doc_id is discovered from the post's
+        # own HTML rather than hardcoded, so it cannot go stale (see
+        # _discover_post_doc_id); _POST_DOC_ID is only the last-resort pin.
         sc = shortcode_from_id(shortcode) if shortcode.isdigit() else (
             shortcode[:-28] if len(shortcode) > 28 else shortcode)
+        doc_id = self._discover_post_doc_id(sc) or _POST_DOC_ID
         data = {
-            "doc_id"   : _POST_DOC_ID,
-            "variables": util.json_dumps({"shortcode": sc}),
+            "doc_id"   : doc_id,
+            # The relay provider flags are not optional padding: omit them and
+            # the query is rejected outright ('execution error').
+            "variables": util.json_dumps({
+                "shortcode": sc,
+                "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider"
+                : False,
+                "__relay_internal__pv__PolarisMultiCaptionCarouselEnabled"
+                "relayprovider": False,
+            }),
         }
         response = self._call(
             "https://www.instagram.com/graphql/query", method="POST", data=data)
-        post = (response.get("data") or {}).get("xdt_shortcode_media")
+        payload = response.get("data") or {}
+
+        # PolarisPostRootQuery answers with the REST payload shape — an 'items'
+        # list identical to /v1/media/{id}/info/ — so these route straight to
+        # _parse_post_rest, no typename juggling needed.
+        web_info = payload.get("xdt_api__v1__media__shortcode__web_info")
+        if web_info:
+            items = web_info.get("items")
+            if items:
+                return items
+
+        # Older doc_ids answered with the GraphQL 'shortcode_media' shape, which
+        # the GraphQL parser handles once 'XDT' typename prefixes are stripped.
+        post = payload.get("xdt_shortcode_media")
         if not post:
             return ()
         return (_strip_xdt_typenames(post),)
+
+    def _rest_media_gated(self):
+        # Persisted in gallery-dl's cache database (_mem=False), so the verdict
+        # survives the process and the whole queue stops re-probing a dead
+        # endpoint. A miss or an expired entry calls _rest_media_ungated(),
+        # which answers False — i.e. the gate lapses on its own and REST gets
+        # another chance, no manual reset needed. To clear it early:
+        # `gallery-dl --clear-cache instagram`.
+        return bool(self.extractor.cache(
+            _rest_media_ungated, _key=None,
+            _exp=self._rest_gate_ttl(), _mem=False))
+
+    def _mark_rest_media_gated(self):
+        ttl = self._rest_gate_ttl()
+        self.extractor.cache_update(
+            _rest_media_ungated, value=True, _exp=ttl, _mem=False)
+        self.extractor.log.debug(
+            "instagram REST media/info is gated; skipping it for %.1f h and "
+            "using doc_id GraphQL", ttl / 3600)
+
+    def _rest_gate_ttl(self):
+        ttl = self.extractor.config("rest-gate-ttl")
+        return _REST_GATE_TTL if ttl is None else int(ttl)
+
+    def _discover_post_doc_id(self, shortcode):
+        # A post's HTML embeds Relay's preloader manifest, which lists every
+        # query the page is about to run together with its CURRENT id:
+        #   {"queryID":"27852811784380813","variables":{"shortcode":"..."},
+        #    "queryName":"PolarisPostRootQuery"}
+        # Reading it there is what stops this from breaking every time Instagram
+        # rotates the id — the previous hardcoded doc_id died exactly that way,
+        # and its only documented fix was a manual DevTools capture.
+        #
+        # Browser-ish headers are REQUIRED. Requested as an API client, the same
+        # URL returns a ~630 kB generic app shell with no manifest and no post
+        # data at all; as a document it returns ~1 MB containing both.
+        doc_id = self.extractor._post_doc_id
+        if doc_id is not None:
+            return doc_id or None
+
+        try:
+            response = self.extractor.request(
+                f"https://www.instagram.com/p/{shortcode}/", headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;"
+                              "q=0.9,*/*;q=0.8",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1",
+                    "Upgrade-Insecure-Requests": "1",
+                })
+            match = _POST_DOC_ID_RE(response.text)
+            doc_id = match[1] if match else ""
+        except Exception as exc:
+            self.extractor.log.debug(
+                "instagram doc_id discovery failed for %s (%s)", shortcode, exc)
+            doc_id = ""
+
+        if doc_id:
+            self.extractor.log.debug(
+                "instagram discovered PolarisPostRootQuery doc_id %s", doc_id)
+        # Cached either way, including the empty miss: one failed lookup per run
+        # is diagnostic, one per post is a stampede.
+        self.extractor._post_doc_id = doc_id
+        return doc_id or None
 
     def reels_media(self, reel_ids):
         endpoint = "/v1/feed/reels_media/"
@@ -1420,8 +1530,29 @@ class InstagramRestAPI():
             s = "" if name.endswith("s") else "s"
             self.extractor.log.warning("%s'%s posts are private", name, s)
 
+        # --- immich patch: upgrade a thin user block to the real profile ---
+        # Since 1.32.7 the default uid strategy is `topsearch`, and its user object carries
+        # no biography and no counts (all the `edge_*` keys are absent, so _assign_user
+        # zeroes count_media/count_followed/...). `web_profile_info` would have them but
+        # 429s on the first call AND on all 5 retries, a minute apart, so it is unusable as
+        # a first strategy. The app endpoint used by user_by_id (/v1/users/<id>/info/) is
+        # NOT throttled and returns the full 220-key profile — and topsearch has just handed
+        # us the numeric id. So spend one extra (disk-cached) request and stamp the real
+        # profile into every post's `user` block, exactly as the `id:<uid>` branch above
+        # does. Without this a first-time download of a handle can never carry a bio: the
+        # id:-form rewrite on our side needs a uid that only a previous download provides.
+        uid = user["id"]
+        if self.extractor.config("metadata") and "biography" not in user:
+            try:
+                self.extractor._user = self.user_by_id(uid)
+            except Exception:
+                self.extractor.log.debug(
+                    "Could not upgrade user block for %s via id:%s", screen_name, uid)
+            else:
+                return uid
+
         self.extractor._assign_user(user)
-        return user["id"]
+        return uid
 
     def user_clips(self, user_id):
         endpoint = "/v1/clips/user/"
@@ -1676,11 +1807,47 @@ def shortcode_from_id(post_id):
     return util.bencode(int(post_id), _ALPHABET)
 
 
-# doc_id for Instagram's PolarisPostActionLoadPostQueryQuery (fetch a single
-# post by shortcode). Instagram rotates these every so often; if single-post
-# downloads start failing with an HTTP/GraphQL error, open the post in a browser
-# and grab the current 'doc_id' from the /graphql/query request in DevTools.
-_POST_DOC_ID = "8845758582119845"
+# Pulls the CURRENT doc_id out of the Relay preloader manifest embedded in a
+# post's HTML. Keyed on the query NAME, not position: the manifest lists a dozen
+# queries (feed prefetch, stories tray, comments, related grid) and their order
+# is not stable.
+_POST_DOC_ID_RE = text.re(
+    r'"queryID":"(\d+)"[^{}]*"variables":\{"shortcode":'
+    r'[^{}]*\},"queryName":"PolarisPostRootQuery"').search
+
+# Last-resort pin for PolarisPostRootQuery, used only if discovery fails.
+# Instagram rotates these, so it WILL go stale — that is expected and no longer
+# fatal, because _discover_post_doc_id reads the live one from the post page.
+#
+# The previously pinned id (8845758582119845, believed to be
+# PolarisPostActionLoadPostQuery) had rotated and returned
+# {"errors":[{"message":"execution error"}]} — HTTP 200, ~90 bytes — which is
+# what silently broke single-post downloads once REST started answering 302.
+_POST_DOC_ID = "27852811784380813"
+
+# Signature of the REST media/info gate: the endpoint 302s single-post requests
+# to the logged-out home page even with valid cookies (see Extractor.request,
+# which turns that redirect into an AbortExtraction). Matched on the message
+# rather than the exception class so an AbortExtraction raised for any other
+# reason does not latch the gate.
+_REST_GATED_RE = text.re(r"redirect to (?:home|login) page").search
+
+# How long InstagramRestAPI.media() keeps skipping REST after seeing the gate.
+# A day: long enough that a queue of hundreds of posts probes it once instead of
+# once per post, short enough that an un-gating is picked up without a manual
+# cache flush. Override per-run with '-o rest-gate-ttl=<seconds>' (0 disables
+# expiry entirely, so prefer a small number over 0 when testing).
+_REST_GATE_TTL = 86400
+
+
+def _rest_media_ungated():
+    """Cache seed for the REST media/info gate: not known to be gated.
+
+    Only exists to give Extractor.cache()/cache_update() a stable key
+    (``gallery_dl.extractor.instagram._rest_media_ungated``); the value is
+    written by InstagramRestAPI._mark_rest_media_gated().
+    """
+    return False
 
 
 def _strip_xdt_typenames(media):

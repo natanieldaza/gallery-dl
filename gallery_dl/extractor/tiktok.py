@@ -14,8 +14,55 @@ import hashlib
 import random
 import time
 
+# TLS impersonation, needed to get past TikTok's WAF.
+# See TiktokExtractor.request() and IMPERSONATE_DEFAULT below.
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?tiktokv?\.com"
 USER_PATTERN = BASE_PATTERN + r"/@([\w_.-]+)"
+
+# curl_cffi impersonation target. TikTok's WAF classifies the client from its
+# TLS/HTTP2 fingerprint BEFORE looking at anything HTTP-level, so cookies, the
+# User-Agent and the JS proof-of-work are all irrelevant to the decision:
+# python-requests gets the challenge and is refused (403, X-TT-System-Error: 3)
+# no matter what it answers. Measured 2026-08-12: 'chrome'/'chrome136' are ALSO
+# challenged and refused; only the iOS Safari fingerprint is served directly
+# (200 + rehydration data on the first request), because TikTok gates mobile web
+# far more loosely. Override with `-o impersonate=<target>` if this stops working.
+IMPERSONATE_DEFAULT = "safari17_2_ios"
+
+# The WAF picks on the TLS fingerprint, but TikTok picks the PAGE VARIANT from
+# the User-Agent, and the two must be chosen independently — with OPPOSITE
+# answers per page type, which is the trap here:
+#
+#   * POST pages (/video/, /photo/) need a macOS Safari UA. The iPhone UA that
+#     the iOS target sends by default yields the "reflow" mobile landing page:
+#     it passes the WAF but carries no item data at all (no 'webapp.video-detail',
+#     just a "Download TikTok" banner), so every post fails to parse.
+#   * PROFILE pages and the API need the NATIVE iOS UA. Sending the macOS Safari
+#     UA there gets the 1462-byte WAF challenge instead of 'webapp.user-detail'
+#     — i.e. the exact fix that unblocks posts breaks profiles if applied to
+#     everything.
+#
+# It must also stay in the Safari family either way, so the UA matches the
+# handshake; a desktop *Chrome* UA is refused on both.
+USER_AGENT_DESKTOP = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                      "Version/17.2 Safari/605.1.15")
+POST_PAGE_RE = text.re(r"/(?:video|photo)/\d+").search
+
+# Even once past the WAF, TikTok nondeterministically answers a page request
+# with a ~43 KB stub that renders client-side and embeds no rehydration data —
+# measured at roughly half of all requests, with or without cookies. It is not
+# rate limiting; an immediate retry gets the real ~430 KB page. Retrying at the
+# request layer matters: the extractor's own loop sleeps `timeout` (30s) per
+# try, which over a 900-post profile is hours of dead time.
+STUB_RETRIES = 4
+STUB_RETRY_DELAY = 0.5
 
 
 class TiktokExtractor(Extractor):
@@ -29,6 +76,113 @@ class TiktokExtractor(Extractor):
     cookies_domain = ".tiktok.com"
     rehydration_data_cache = {}
     rehydration_data_app_context_cache = {}
+    _cffi_session = None
+
+    def request(self, url, method="GET", fatal=True, expected=(),
+                interval=True, notfound=None, **kwargs):
+        """Issue requests with a browser TLS fingerprint (see IMPERSONATE_DEFAULT).
+
+        Mirrors the fatal/expected/notfound/interval semantics of
+        Extractor.request, and falls back to it when curl_cffi is unavailable
+        or the call fails — so a missing dependency degrades to the old
+        behaviour (challenge + 403) instead of breaking the extractor outright.
+        """
+        impersonate = self.config("impersonate", IMPERSONATE_DEFAULT)
+        if not HAS_CURL_CFFI or not impersonate:
+            return Extractor.request(
+                self, url, method=method, fatal=fatal, expected=expected,
+                interval=interval, notfound=notfound, **kwargs)
+
+        if (json := kwargs.pop("json", None)) is not None:
+            kwargs["data"] = util.json_dumps(json).encode()
+            headers = kwargs.setdefault("headers", {})
+            headers["Content-Type"] = "application/json"
+
+        # Honour gallery-dl's own request pacing; the impersonated session
+        # bypasses everything else in Extractor.request, including this.
+        if self._interval_request is not None and interval:
+            seconds = (self._interval_request() -
+                       (time.time() - Extractor.request_timestamp))
+            if seconds > 0.0:
+                self.sleep(seconds, "request")
+
+        try:
+            session = self._cffi_session
+            if session is None:
+                session = self._cffi_session = cffi_requests.Session(
+                    impersonate=impersonate)
+                # Seed from gallery-dl's own jar so the configured cookies.txt
+                # (and anything set since) applies to the impersonated session.
+                for cookie in self.cookies:
+                    session.cookies.set(
+                        cookie.name, cookie.value,
+                        domain=cookie.domain or self.cookies_domain)
+
+            headers = dict(kwargs.get("headers") or ())
+            if POST_PAGE_RE(url):
+                headers.setdefault("User-Agent", USER_AGENT_DESKTOP)
+
+            for attempt in range(STUB_RETRIES + 1):
+                response = session.request(
+                    method, url,
+                    headers=headers,
+                    params=kwargs.get("params"),
+                    data=kwargs.get("data"),
+                    timeout=kwargs.get("timeout") or self._timeout or 30,
+                    allow_redirects=kwargs.get("allow_redirects", True),
+                )
+                if not self._is_stub_page(response) or attempt >= STUB_RETRIES:
+                    break
+                # Retry here rather than letting _extract_rehydration_data do
+                # it: that loop sleeps `timeout` (30s) between tries and burns
+                # a bogus "Solving JavaScript challenge" pass. The stub is not
+                # rate limiting — an immediate retry gets the real page.
+                self.log.debug(
+                    "TikTok served a data-less stub page for %s, retrying "
+                    "(%s/%s)", url, attempt + 1, STUB_RETRIES)
+                time.sleep(STUB_RETRY_DELAY)
+        except Exception as exc:
+            self.log.warning(
+                "curl_cffi request failed (%s: %s); retrying without TLS "
+                "impersonation", exc.__class__.__name__, exc)
+            return Extractor.request(
+                self, url, method=method, fatal=fatal, expected=expected,
+                interval=False, notfound=notfound, **kwargs)
+
+        # Mirror new cookies back so `cookies-update` still persists the
+        # refreshed session (msToken and friends rotate on every call).
+        for cookie in session.cookies.jar:
+            self.cookies.set_cookie(cookie)
+        if self._write_pages:
+            self._dump_response(response)
+
+        code = response.status_code
+        if code < 400 or code in expected:
+            return response
+        if notfound is not None and code == 404:
+            self.status |= self.exc.NotFoundError.code
+            raise self.exc.NotFoundError(
+                self.__class__.subcategory if notfound is True else notfound)
+        msg = f"'{code} {response.reason}' for '{response.url}'"
+        if not fatal:
+            self.log.warning(msg)
+            return util.NullResponse(url, msg)
+        exc = self.exc.HttpError(msg, response)
+        self.status |= exc.code
+        raise exc
+
+    def _is_stub_page(self, response):
+        """True for a 200 HTML page that carries no rehydration data.
+
+        Scoped to HTML on purpose: the API endpoints answer JSON, which never
+        contains the marker, and treating those as stubs would retry every API
+        call STUB_RETRIES times.
+        """
+        if response.status_code != 200:
+            return False
+        if "html" not in response.headers.get("content-type", ""):
+            return False
+        return b"__UNIVERSAL_DATA_FOR_REHYDRATION__" not in response.content
 
     def _init(self):
         self.photo = self.config("photos", True)
