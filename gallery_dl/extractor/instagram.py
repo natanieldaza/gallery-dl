@@ -1504,14 +1504,33 @@ class InstagramAPI():
         # id:-form rewrite on our side needs a uid that only a previous download provides.
         uid = user["id"]
         if self.extractor.config("metadata") and "biography" not in user:
-            try:
-                self.extractor._user = user = self.user_by_id(uid)
-            except Exception:
-                self.extractor.log.debug(
-                    "Could not upgrade user block for %s via id:%s", screen_name, uid)
-            else:
+            # GraphQL FIRST. The REST profile endpoint has been throttled since
+            # late September 2026 (see _PROFILE_DOC_ID), so asking it first
+            # spends the whole retry budget — five attempts a minute apart — on
+            # a refusal before anything else is tried. It stays as the fallback
+            # because it is still the richer answer on the occasions it lands.
+            upgraded = None
+            for source, fetch in (
+                (_PROFILE_OPNAME, lambda: self.user_by_graphql(
+                    screen_name, uid)),
+                (f"id:{uid}", lambda: self.user_by_id(uid)),
+            ):
+                try:
+                    upgraded = fetch()
+                except Exception as exc:
+                    # The REASON, not just the fact. A 429, a redirect and a
+                    # challenge page all used to arrive here as one
+                    # indistinguishable line, because _user_by_id_impl converts
+                    # every exception into NotFoundError.
+                    self.extractor.log.debug(
+                        "Could not upgrade user block for %s via %s: %s: %s",
+                        screen_name, source, exc.__class__.__name__, exc)
+                else:
+                    break
+            if upgraded is not None:
                 # Upstream renamed user_id() -> user(): callers now want the
                 # user OBJECT, not the uid (user_feed does user(h)["username"]).
+                self.extractor._user = user = upgraded
                 return user
 
         self.extractor._assign_user(user)
@@ -1728,6 +1747,86 @@ class InstagramAPI():
                 return extr._update_cursor(None)
             params["max_id"] = extr._update_cursor(next_max_id)
 
+    def user_by_graphql(self, username, user_id):
+        """The profile /v1/users/<id>/info/ used to return, via the web query."""
+        return self.extractor.cache(
+            self._user_by_graphql_impl, username, user_id,
+            _mem=self._user_cache)
+
+    def _user_by_graphql_impl(self, username, user_id):
+        variables = {"id": user_id, "enable_integrity_filters": False}
+        variables.update(_PROFILE_PROVIDERS)
+        data = self._call_graphql(
+            username, _PROFILE_OPNAME, _PROFILE_FIELD, _PROFILE_DOC_ID,
+            variables).get("data") or {}
+        # The query ALIASES its root field to "user"; the raw field name is the
+        # fallback in case a future revision drops the alias.
+        user = data.get("user") or data.get(_PROFILE_FIELD)
+        if not user or "biography" not in user:
+            # A thin or empty answer is the failure this exists to avoid. Say so
+            # rather than returning something the caller will cache and stamp
+            # into every sidecar.
+            raise self.exc.NotFoundError("user")
+        return user
+
+    def _call_graphql(self, username, opname, fieldname, doc_id, variables):
+        """One GraphQL query, no cursor. Sibling of _pagination_graphql.
+
+        Deliberately not folded into that method: it is the working path for
+        every post, reel and highlight listing, and a profile lookup is not
+        worth the risk of touching it.
+        """
+        extr = self.extractor
+        url = extr.root + "/graphql/query"
+        fb_lsd, fb_dtsg = self._extract_fb_tokens(username)
+
+        headers = {
+            "Accept": "*/*",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-FB-Friendly-Name": opname,
+            "X-CSRFToken": extr.csrf_token,
+            "X-IG-App-ID": "936619743392459",
+            "X-IG-Max-Touch-Points": "0",
+            "X-BLOKS-VERSION-ID": "394436feebb82fbc8bf09459d29e98a4"
+                                  "182d7d9f4f36777d8278b409536b0803",
+            "X-Root-Field-Name": fieldname,
+            "X-FB-LSD": fb_lsd,
+            "X-ASBD-ID": "359341",
+            "Origin": extr.root,
+            "Alt-Used": extr.root[8:],
+            "Connection": "keep-alive",
+            "Referer": f"{extr.root}/{username}/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+        }
+        body = {
+            "av"    : "17841415137994167",
+            "__d"   : "www",
+            "__user": "0",
+            "__a"   : "1",
+            "__req" : "0",
+            "__hs"  : "20706.HYP%3Ainstagram_web_pkg.2.1...0",
+            "dpr"   : "1",
+            "__ccg" : "EXCELLENT",
+            "__rev" : "1047183312",
+            "__hsi" : "7683797502103314933",
+            "__comet_req": "7",
+            "fb_dtsg"  : fb_dtsg,
+            "jazoest"  : "26461",
+            "lsd"      : fb_lsd,
+            "__crn"    : "comet.igweb.PolarisProfilePostsTabRoute",
+            "fb_api_caller_class": "RelayModern",
+            "fb_api_req_friendly_name": opname,
+            "server_timestamps": "true",
+            "variables": util.json_dumps(variables),
+            "doc_id"   : extr.cache(self._extract_docid, username, opname,
+                                    _key=1, _exp=86400, _mem=False) or doc_id,
+        }
+
+        response = extr.request(url, method="POST", headers=headers, data=body)
+        return util.json_loads(response.text)
+
     def _pagination_graphql(self, opname, fieldname, doc_id, variables):
         extr = self.extractor
         root = extr.root
@@ -1858,6 +1957,40 @@ _REST_GATED_RE = text.re(r"redirect to (?:home|login) page").search
 # cache flush. Override per-run with '-o rest-gate-ttl=<seconds>' (0 disables
 # expiry entirely, so prefer a small number over 0 when testing).
 _REST_GATE_TTL = 86400
+
+# --- immich patch: the query that replaced /v1/users/<id>/info/ ---
+#
+# Instagram began throttling the REST profile endpoint between 19 and 23 Sep
+# 2026. Measured: 11 of 11 calls succeeded up to the 19th, then 27 x 429 against
+# 12 x 200 — while its SIBLING /v1/media/<id>/info/ answered 11 of 11 on the
+# same session, IP and minute, and two different accounts behaved identically.
+# So it is the endpoint that is throttled, not the account, session, IP or UA.
+#
+# The web app does not use it either. A profile page loads
+# PolarisProfilePageContentQuery, whose root field fetch__XDTUserDict returns a
+# 65-key XDTUserDict carrying biography, biography_with_entities, bio_links,
+# follower_count, following_count, media_count, category and pronouns. Fewer
+# keys than the 220-key REST profile, but the count fields keep their REST
+# names, so json-sidecar.service reads this shape unchanged.
+#
+# Verified against a live session: HTTP 200 with a populated biography in the
+# same minute that /v1/users/<id>/info/ returned 429 for the same uid.
+#
+# The id is discovered per run by _extract_docid — the same mechanism the post
+# query uses — so this pin is only the fallback for when discovery fails.
+_PROFILE_OPNAME = "PolarisProfilePageContentQuery"
+_PROFILE_FIELD = "fetch__XDTUserDict"
+_PROFILE_DOC_ID = "28036671149327607"
+
+# Relay provider flags the query declares. They must be present or the request
+# is rejected; their VALUES only select experiments we do not want, so all off.
+_PROFILE_PROVIDERS = {
+    "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": False,
+    "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": False,
+    "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": False,
+    "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
+    "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider": False,
+}
 
 
 def _rest_media_ungated():
