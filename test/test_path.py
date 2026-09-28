@@ -386,6 +386,14 @@ class TestPathOptions(TestPath):
         self.assertEqual(
             pfmt.realdirectory, ". test-テスト-'&>-_:~.txt ./", "custom")
 
+    def test_option_pathsub(self):
+        config.set((), "directory", ["{foo}", "0{id}45", "0{id}"])
+        config.set((), "base-directory", "")
+        config.set((), "path-sub", {"bar": "baz", "0123": "999"})
+
+        pfmt = self._pfmt(kwdict=True)
+        self.assertEqual(pfmt.realdirectory, "baz/012345/999/")
+
 
 if __name__ == "__main__":
     unittest.main()

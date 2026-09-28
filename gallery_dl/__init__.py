@@ -12,7 +12,7 @@ import logging
 from . import version, config, option, output, extractor, job, util, exception
 
 __author__ = "Mike Fährmann"
-__copyright__ = "Copyright 2014-2025 Mike Fährmann"
+__copyright__ = "Copyright 2014-2026 Mike Fährmann"
 __license__ = "GPLv2"
 __maintainer__ = "Mike Fährmann"
 __email__ = "mike_faehrmann@web.de"
@@ -83,11 +83,23 @@ def main():
         for opts in args.options:
             config.set(*opts)
 
+        # environment variables
+        if env := config.getg("environment"):
+            if isinstance(env, dict):
+                env = env.dicts()
+            environ = os.environ
+            if config.getg("environment-expand", True):
+                for key, value in env:
+                    environ[key] = util.expand_path(value)
+            else:
+                for key, value in env:  # faster than '.update()'
+                    environ[key] = value
+
         output.configure_standard_streams()
         output.configure_units()
 
         # signals
-        if signals := config.get((), "signals-ignore"):
+        if signals := config.getg("signals-ignore"):
             import signal
             if isinstance(signals, str):
                 signals = signals.split(",")
@@ -98,7 +110,7 @@ def main():
                 else:
                     signal.signal(signal_num, signal.SIG_IGN)
 
-        if signals := config.get((), "signals-actions"):
+        if signals := config.getg("signals-actions"):
             from . import actions
             actions.parse_signals(signals)
 
@@ -118,7 +130,7 @@ def main():
             output.ANSI = True
 
         # filter environment
-        filterenv = config.get((), "filters-environment", True)
+        filterenv = config.getg("filters-environment", True)
         if filterenv is True:
             pass
         elif not filterenv:
@@ -130,16 +142,20 @@ def main():
                 util.compile_expression = util.compile_expression_defaultdict
 
         # format string options
-        if not config.get((), "format-operator-dot", True):
+        if not config.getg("format-operator-dot", True):
             from . import formatter
             formatter._attrgetter = formatter.operator.attrgetter
-        if separator := config.get((), "format-separator"):
+        if separator := config.getg("format-separator"):
             from . import formatter
             formatter._SEPARATOR = separator
 
         # eval globals
-        if path := config.get((), "globals"):
+        if path := config.getg("globals"):
             util.GLOBALS.update(util.import_file(path).__dict__)
+
+        # symlinks
+        if config.getg("follow-symlinks"):
+            util.SYMLINKS = True
 
         # loglevels
         output.configure_logging(args.loglevel)
@@ -352,7 +368,7 @@ Entries:
                 ))
 
         else:
-            if input_files := config.get((), "input-files"):
+            if input_files := config.getg("input-files"):
                 for input_file in input_files:
                     if isinstance(input_file, str):
                         input_file = (input_file, None)
@@ -660,6 +676,8 @@ class InputManager():
         try:
             with open(path_tmp, "w", encoding="utf-8") as fp:
                 fp.writelines(lines)
+            if util.SYMLINKS and os.path.islink(path):
+                path = os.path.realpath(path)
             os.replace(path_tmp, path)
         except Exception as exc:
             self.log.warning(

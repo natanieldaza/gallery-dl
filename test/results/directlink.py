@@ -40,6 +40,25 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://example.org/file.webm",
+    "#comment" : "'transform'",
+    "#category": ("", "directlink", "example.org"),
+    "#class"   : directlink.DirectlinkExtractor,
+    "#options" : {
+        "transform": {
+            r"/file": r"/path/file2",
+            r"(\w)\w*(\d+)\.": r"\1\2\2.",
+        },
+    },
+    "#results" : "https://example.org/path/f22.webm",
+
+    "domain"   : "example.org",
+    "path"     : "path",
+    "filename" : "f22",
+    "extension": "webm",
+},
+
+{
     "#url"     : "https://example.org/path/to/file.webm?que=1?&ry=2/#fragment",
     "#comment" : "more complex example",
     "#category": ("", "directlink", "example.org"),

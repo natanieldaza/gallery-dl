@@ -87,6 +87,14 @@ def process_content(html, content):
             process_children(html, content)
             html.append("</a>")
 
+    elif type == "cta":
+        if (attrs := content.get("attrs")) and \
+                (link := attrs.get("button_link")):
+            html.append(f'<p><a href="{text.escape(link)}">'
+                        f'{text.escape(attrs.get("button_text"))}</a></p>')
+            if caption := attrs.get("caption"):
+                html.append(f'<p class="caption">{text.escape(caption)}</p>')
+
     elif type == "hardBreak":
         html.append("<br/>")
 

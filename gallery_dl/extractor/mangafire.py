@@ -41,6 +41,7 @@ class MangafireBase():
 
     def _chapter_info(self, info):
         chapter_info = str(info["number"])
+        type = info.get("type")
 
         if info.get("type") == "volume":
             return {
@@ -50,6 +51,8 @@ class MangafireBase():
                 "chapter_minor" : "",
                 "chapter_string": chapter_info,
                 "chapter_id"    : info.get("id", 0),
+                "chapter_type"  : type,
+                "official"      : (type.lower() == "official"),
                 "title"         : info.get("name"),
                 "lang"          : info.get("language"),
             }
@@ -60,6 +63,8 @@ class MangafireBase():
             "chapter_minor" : sep + minor,
             "chapter_string": chapter_info,
             "chapter_id"    : info.get("id", 0),
+            "chapter_type"  : type,
+            "official"      : (type.lower() == "official"),
             "title"         : info.get("name"),
             "lang"          : info.get("language"),
             "date"          : self.parse_timestamp(info.get("createdAt")),

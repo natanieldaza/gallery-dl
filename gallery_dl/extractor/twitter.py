@@ -43,6 +43,7 @@ class TwitterExtractor(Extractor):
         self.twitpic = self.config("twitpic", False)
         self.pinned = self.config("pinned", False)
         self.quoted = self.config("quoted", False)
+        self.quoted_expand = self.quoted and self.config("quoted-expand", True)
         self.ads = self.config("ads", False)
         self.cards = self.config("cards", False)
         self.cards_blacklist = self.config("cards-blacklist")
@@ -2380,7 +2381,20 @@ class TwitterAPI():
 
                 if "quoted_status_result" in tweet:
                     try:
-                        quoted = tweet["quoted_status_result"]["result"]
+                        if quoted := tweet["quoted_status_result"]:
+                            quoted = quoted["result"]
+                        elif extr.quoted_expand:
+                            quoted_id = legacy["quoted_status_id_str"]
+                            extr.log.debug("Retrieving data for quote %s",
+                                           quoted_id)
+                            for quoted in self.tweet_detail(quoted_id):
+                                if quoted["rest_id"] == quoted_id:
+                                    break
+                            else:
+                                quoted = {}
+                        if "tweet" in quoted:
+                            #  limitedActionResults
+                            quoted = quoted["tweet"]
                         quoted["legacy"]["quoted_by"] = (
                             tweet["core"]["user_results"]["result"]
                             ["core"]["screen_name"])

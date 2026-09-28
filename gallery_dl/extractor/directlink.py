@@ -29,6 +29,16 @@ class DirectlinkExtractor(Extractor):
         Extractor.__init__(self, match)
 
     def items(self):
+        url = self.url
+
+        if trfm := self.config("transform"):
+            if isinstance(trfm, dict):
+                trfm = trfm.items()
+            for pattern, sub in trfm:
+                url = text.re(pattern).sub(sub, url)
+            if url != self.url and (match := self.pattern.match(url)):
+                self.data = match.groupdict()
+
         data = self.data
         for key, value in data.items():
             if value:
@@ -37,8 +47,7 @@ class DirectlinkExtractor(Extractor):
         data["path"], _, name = data["path"].rpartition("/")
         data["filename"], _, ext = name.rpartition(".")
         data["extension"] = ext.lower()
-        data["_http_headers"] = {
-            "Referer": self.url.encode("latin-1", "ignore")}
+        data["_http_headers"] = {"Referer": url.encode("latin-1", "ignore")}
 
         yield Message.Directory, "", data
-        yield Message.Url, self.url, data
+        yield Message.Url, url, data

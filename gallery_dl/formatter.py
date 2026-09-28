@@ -226,7 +226,7 @@ def _init_jinja():
     import jinja2
     from . import config
 
-    if opts := config.get((), "jinja"):
+    if opts := config.getg("jinja"):
         JinjaFormatter.env = env = jinja2.Environment(
             **opts.get("environment") or {})
     else:

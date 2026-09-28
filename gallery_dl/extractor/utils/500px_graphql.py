@@ -7,506 +7,831 @@
 # published by the Free Software Foundation.
 
 
-OtherPhotosQuery = """\
-query OtherPhotosQuery($username: String!, $pageSize: Int) {
-  user: userByUsername(username: $username) {
-    ...OtherPhotosPaginationContainer_user_RlXb8
+getPhotoById = """\
+query getPhotoById($id: ID!) {
+  getPhotoById(id: $id) {
     id
-  }
-}
-
-fragment OtherPhotosPaginationContainer_user_RlXb8 on User {
-  photos(first: $pageSize, privacy: PROFILE, sort: ID_DESC) {
-    edges {
-      node {
-        id
-        legacyId
-        canonicalPath
-        width
-        height
-        name
-        isLikedByMe
-        notSafeForWork
-        photographer: uploader {
-          id
-          legacyId
-          username
-          displayName
-          canonicalPath
-          followedByUsers {
-            isFollowedByMe
-          }
-        }
-        images(sizes: [33, 35]) {
-          size
-          url
-          jpegUrl
-          webpUrl
-          id
-        }
-        __typename
-      }
-      cursor
-    }
-    totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-  }
-}
-"""
-
-OtherPhotosPaginationContainerQuery = """\
-query OtherPhotosPaginationContainerQuery($username: String!, $pageSize: Int, $cursor: String) {
-  userByUsername(username: $username) {
-    ...OtherPhotosPaginationContainer_user_3e6UuE
-    id
-  }
-}
-
-fragment OtherPhotosPaginationContainer_user_3e6UuE on User {
-  photos(first: $pageSize, after: $cursor, privacy: PROFILE, sort: ID_DESC) {
-    edges {
-      node {
-        id
-        legacyId
-        canonicalPath
-        width
-        height
-        name
-        isLikedByMe
-        notSafeForWork
-        photographer: uploader {
-          id
-          legacyId
-          username
-          displayName
-          canonicalPath
-          followedByUsers {
-            isFollowedByMe
-          }
-        }
-        images(sizes: [33, 35]) {
-          size
-          url
-          jpegUrl
-          webpUrl
-          id
-        }
-        __typename
-      }
-      cursor
-    }
-    totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-  }
-}
-"""
-
-ProfileRendererQuery = """\
-query ProfileRendererQuery($username: String!) {
-  profile: userByUsername(username: $username) {
-    id
-    legacyId
-    userType: type
-    username
-    firstName
-    displayName
-    registeredAt
-    canonicalPath
-    avatar {
-      ...ProfileAvatar_avatar
+    uploader {
       id
-    }
-    userProfile {
-      firstname
-      lastname
-      state
-      country
-      city
-      about
-      id
-    }
-    socialMedia {
-      website
-      twitter
-      instagram
-      facebook
-      id
-    }
-    coverPhotoUrl
-    followedByUsers {
-      totalCount
+      avatar
+      displayName
+      isBlockedByMe
+      username
       isFollowedByMe
+      isFollowingMe
+      membership {
+        membership
+        __typename
+      }
+      location
+      city
+      country
+      state
+      address
+      __typename
     }
-    followingUsers {
-      totalCount
+    title
+    downloadable
+    description
+    uploadedAt
+    uploadedLocation
+    urls {
+      size_600
+      size_1024
+      size_2048
+      size_4k
+      __typename
     }
-    membership {
-      expiryDate
-      membershipTier: tier
-      photoUploadQuota
-      refreshPhotoUploadQuotaAt
-      paymentStatus
-      id
+    width
+    height
+    dominantColorLight
+    dominantColorDark
+    location
+    locationText
+    takenAt
+    camera
+    lens
+    aperture
+    focalLength
+    shutterSpeed
+    iso
+    category
+    techniques
+    isNsfw
+    isLikedByMe
+    viewerHasReposted
+    pulseScore
+    viewCount
+    likeCount
+    favorCount
+    commentCount
+    hasComment
+    shareCount
+    repostCount
+    geminiDetail {
+      category
+      style
+      technique
+      title
+      keyword
+      __typename
     }
-    profileTabs {
-      tabs {
-        name
-        visible
+    honors {
+      __typename
+      ... on PhotoHonorSelected {
+        type
+        __typename
+      }
+      ... on PhotoHonorAmbassadorsPick {
+        ambassador {
+          id
+          avatar
+          __typename
+        }
+        __typename
+      }
+      ... on PhotoHonorPxGallery {
+        gallery {
+          id
+          name
+          __typename
+        }
+        __typename
       }
     }
-    ...EditCover_cover
-    photoStats {
-      likeCount
-      viewCount
-    }
-    photos(privacy: PROFILE) {
-      totalCount
-    }
-    licensingPhotos(status: ACCEPTED) {
-      totalCount
-    }
-    portfolio {
-      id
+    needLoginToView
+    aiArtAnalysis
+    taggedAigc
+    userDeclaredAigc
+    isPrivate
+    isInReview
+    publicAiCritiqueReport {
+      taskId
       status
-      userDisabled
+      __typename
     }
-  }
-}
-
-fragment EditCover_cover on User {
-  coverPhotoUrl
-}
-
-fragment ProfileAvatar_avatar on UserAvatar {
-  images(sizes: [MEDIUM, LARGE]) {
-    size
-    url
-    id
+    __typename
   }
 }
 """
 
-GalleriesDetailQueryRendererQuery = """\
-query GalleriesDetailQueryRendererQuery($galleryOwnerLegacyId: ID!, $ownerLegacyId: String, $slug: String, $token: String, $pageSize: Int, $gallerySize: Int) {
-  galleries(galleryOwnerLegacyId: $galleryOwnerLegacyId, first: $gallerySize) {
-    edges {
-      node {
-        legacyId
-        description
-        name
-        privacy
-        canonicalPath
-        notSafeForWork
-        buttonName
-        externalUrl
-        cover {
-          images(sizes: [35, 33]) {
-            size
-            webpUrl
-            jpegUrl
-            id
-          }
-          id
-        }
-        photos {
-          totalCount
-        }
-        id
-      }
-    }
-  }
-  gallery: galleryByOwnerIdAndSlugOrToken(ownerLegacyId: $ownerLegacyId, slug: $slug, token: $token) {
-    ...GalleriesDetailPaginationContainer_gallery_RlXb8
+getVideoById = """\
+query getVideoById($id: ID!) {
+  getVideoById(id: $id) {
     id
+    title
+    description
+    coverUrl
+    videoUrl
+    durationMs
+    height
+    uploadedAt
+    commentCount
+    favorCount
+    isLikedByMe
+    likeCount
+    shareCount
+    viewCount
+    width
+    locationText
+    taggedAigc
+    userDeclaredAigc
+    isNsfw
+    isInReview
+    isPrivate
+    isDeleted
+    aiTrainingOptIn
+    city
+    country
+    downloadable
+    latitude
+    location
+    longitude
+    poi
+    privacy
+    state
+    honors {
+      ...PhotoHonorFields
+      __typename
+    }
+    uploader {
+      id
+      avatar
+      displayName
+      username
+      isBlockedByMe
+      isFollowedByMe
+      isFollowingMe
+      membership {
+        membership
+        __typename
+      }
+      location
+      city
+      country
+      state
+      address
+      __typename
+    }
+    __typename
   }
 }
 
-fragment GalleriesDetailPaginationContainer_gallery_RlXb8 on Gallery {
-  id
-  legacyId
-  name
-  privacy
-  notSafeForWork
-  ownPhotosOnly
-  canonicalPath
-  publicSlug
-  lastPublishedAt
-  photosAddedSinceLastPublished
-  reportStatus
-  creator {
-    legacyId
-    id
+fragment PhotoHonorFields on PhotoHonor {
+  __typename
+  ... on PhotoHonorSelected {
+    type
+    __typename
   }
-  cover {
-    images(sizes: [33, 32, 36, 2048]) {
-      url
-      size
-      webpUrl
+  ... on PhotoHonorAmbassadorsPick {
+    ambassador {
       id
+      avatar
+      __typename
     }
-    id
+    __typename
   }
-  description
-  externalUrl
-  buttonName
-  photos(first: $pageSize) {
+  ... on PhotoHonorPxGallery {
+    gallery {
+      id
+      name
+      __typename
+    }
+    __typename
+  }
+}
+"""
+
+getPhotoGroupById = """\
+query getPhotoGroupById($id: ID!) {
+  getPhotoGroupById(id: $id) {
+    id
+    uploader {
+      id
+      avatar
+      displayName
+      isBlockedByMe
+      username
+      isFollowedByMe
+      isFollowingMe
+      membership {
+        membership
+        __typename
+      }
+      location
+      city
+      country
+      state
+      address
+      __typename
+    }
+    title
+    description
+    createdAt
+    cover {
+      urls {
+        size_600
+        size_1024
+        size_2048
+        size_4k
+        __typename
+      }
+      __typename
+    }
+    isLikedByMe
+    viewerHasReposted
+    viewCount
+    likeCount
+    favorCount
+    commentCount
+    shareCount
+    isPrivate
+    isInReview
+    honors {
+      ...PhotoHonorFields
+      __typename
+    }
+    __typename
+  }
+}
+
+fragment PhotoHonorFields on PhotoHonor {
+  __typename
+  ... on PhotoHonorSelected {
+    type
+    __typename
+  }
+  ... on PhotoHonorAmbassadorsPick {
+    ambassador {
+      id
+      avatar
+      __typename
+    }
+    __typename
+  }
+  ... on PhotoHonorPxGallery {
+    gallery {
+      id
+      name
+      __typename
+    }
+    __typename
+  }
+}
+"""
+
+getPhotosByGroupId = """\
+query getPhotosByGroupId($groupId: ID!, $excludeNsfw: Boolean) {
+  getPhotosByGroupId(groupId: $groupId, excludeNsfw: $excludeNsfw) {
+    id
+    title
+    width
+    height
+    takenAt
+    uploadedAt
+    taggedAigc
+    userDeclaredAigc
+    urls {
+      size_600
+      size_1024
+      size_2048
+      size_4k
+      __typename
+    }
+    isNsfw
+    __typename
+  }
+}
+"""
+
+pageResources = """\
+query pageResources($userId: ID!, $first: Int!, $after: String, $resourceTypes: [ResourceType!], $sort: ResourceSortOption = CREATED_AT_DESC, $excludeNsfw: Boolean) {
+  pageResources(
+    userId: $userId
+    first: $first
+    after: $after
+    resourceTypes: $resourceTypes
+    sort: $sort
+    excludeNsfw: $excludeNsfw
+  ) {
     totalCount
     edges {
       cursor
       node {
-        id
-        legacyId
-        canonicalPath
-        name
-        description
-        category
-        uploadedAt
-        location
-        width
-        height
-        isLikedByMe
-        photographer: uploader {
-          id
-          legacyId
-          username
-          displayName
-          canonicalPath
-          avatar {
-            images(sizes: SMALL) {
-              url
-              id
-            }
-            id
-          }
-          followedByUsers {
-            totalCount
-            isFollowedByMe
-          }
-        }
-        images(sizes: [33, 32]) {
-          size
-          url
-          webpUrl
-          id
-        }
         __typename
+        ...PageProfileResourcesPhotoFragment
+        ...PageProfileResourcesPhotoGroupFragment
+        ...PageProfileResourcesVideoFragment
       }
+      __typename
     }
     pageInfo {
-      endCursor
       hasNextPage
+      endCursor
+      __typename
     }
-  }
-}
-"""
-
-GalleriesDetailPaginationContainerQuery = """\
-query GalleriesDetailPaginationContainerQuery($ownerLegacyId: String, $slug: String, $token: String, $pageSize: Int, $cursor: String) {
-  galleryByOwnerIdAndSlugOrToken(ownerLegacyId: $ownerLegacyId, slug: $slug, token: $token) {
-    ...GalleriesDetailPaginationContainer_gallery_3e6UuE
-    id
+    __typename
   }
 }
 
-fragment GalleriesDetailPaginationContainer_gallery_3e6UuE on Gallery {
-  id
-  legacyId
-  name
-  privacy
-  notSafeForWork
-  ownPhotosOnly
-  canonicalPath
-  publicSlug
-  lastPublishedAt
-  photosAddedSinceLastPublished
-  reportStatus
-  creator {
-    legacyId
-    id
+fragment PhotoHonorFields on PhotoHonor {
+  __typename
+  ... on PhotoHonorSelected {
+    type
+    __typename
   }
-  cover {
-    images(sizes: [33, 32, 36, 2048]) {
-      url
-      size
-      webpUrl
+  ... on PhotoHonorAmbassadorsPick {
+    ambassador {
       id
+      avatar
+      __typename
     }
-    id
+    __typename
   }
+  ... on PhotoHonorPxGallery {
+    gallery {
+      id
+      name
+      __typename
+    }
+    __typename
+  }
+}
+
+fragment PageProfileResourcesPhotoFragment on Photo {
+  id
+  isDeleted
+  isInReview
+  isPrivate
+  taggedAigc
+  userDeclaredAigc
+  questInfo {
+    rewardQuestName
+    __typename
+  }
+  honors {
+    ...PhotoHonorFields
+    __typename
+  }
+  title
   description
-  externalUrl
-  buttonName
-  photos(first: $pageSize, after: $cursor) {
-    totalCount
-    edges {
-      cursor
-      node {
-        id
-        legacyId
-        canonicalPath
-        name
-        description
-        category
-        uploadedAt
-        location
-        width
-        height
-        isLikedByMe
-        photographer: uploader {
+  downloadable
+  takenAt
+  uploadedAt
+  licensing {
+    status
+    __typename
+  }
+  urls {
+    size_600
+    size_1024
+    size_2048
+    size_4k
+    __typename
+  }
+  uploader {
+    id
+    username
+    avatar
+    displayName
+    isBlockedByMe
+    isFollowedByMe
+    isFollowingMe
+    __typename
+  }
+  isNsfw
+  isLikedByMe
+  viewerHasReposted
+  width
+  height
+  dominantColorLight
+  dominantColorDark
+  hasComment
+  __typename
+}
+
+fragment PageProfileResourcesPhotoGroupFragment on PhotoGroup {
+  id
+  isDeleted
+  isInReview
+  isPrivate
+  honors {
+    ...PhotoHonorFields
+    __typename
+  }
+  title
+  description
+  numCount
+  publicItemCount
+  isLikedByMe
+  isNsfw
+  viewerHasReposted
+  uploader {
+    id
+    username
+    displayName
+    avatar
+    isFollowedByMe
+    isFollowingMe
+    isBlockedByMe
+    __typename
+  }
+  coverPhotos(first: 5) {
+    id
+    urls {
+      size_600
+      size_1024
+      size_2048
+      size_4k
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
+
+fragment PageProfileResourcesVideoFragment on Video {
+  id
+  isDeleted
+  isInReview
+  isPrivate
+  isProcessing
+  taggedAigc
+  userDeclaredAigc
+  questInfo {
+    rewardQuestName
+    __typename
+  }
+  honors {
+    ...PhotoHonorFields
+    __typename
+  }
+  title
+  coverUrl
+  videoUrl
+  width
+  height
+  isNsfw
+  isLikedByMe
+  uploader {
+    id
+    username
+    avatar
+    displayName
+    isBlockedByMe
+    isFollowedByMe
+    isFollowingMe
+    __typename
+  }
+  __typename
+}
+"""
+
+GetGalleryById = """\
+query GetGalleryById($id: ID!) {
+  getGalleryById(id: $id) {
+    buttonName
+    id
+    name
+    description
+    externalUrl
+    isPrivate
+    isNsfw
+    isDeleted
+    isLikedByMe
+    viewerHasReposted
+    itemCount
+    updatedAt
+    likeCount
+    viewCount
+    commentCount
+    hasComment
+    shareCount
+    repostCount
+    pulseScore
+    photographers(first: 4) {
+      totalCount
+      edges {
+        node {
           id
-          legacyId
+          avatar
           username
-          displayName
-          canonicalPath
-          avatar {
-            images(sizes: SMALL) {
-              url
-              id
-            }
-            id
-          }
-          followedByUsers {
-            totalCount
-            isFollowedByMe
-          }
+          __typename
         }
-        images(sizes: [33, 32]) {
-          size
-          url
-          webpUrl
+        __typename
+      }
+      __typename
+    }
+    kind
+    creator {
+      id
+      avatar
+      displayName
+      username
+      location
+      isBlockedByMe
+      isFollowedByMe
+      isFollowingMe
+      membership {
+        membership
+        __typename
+      }
+      __typename
+    }
+    background {
+      id
+      width
+      height
+      urls {
+        size_600
+        size_1024
+        size_2048
+        size_4k
+        __typename
+      }
+      __typename
+    }
+    coverPhotos(first: 1) {
+      id
+      urls {
+        size_600
+        size_1024
+        size_2048
+        size_4k
+        __typename
+      }
+      __typename
+    }
+    honors {
+      __typename
+      ... on PhotoHonorSelected {
+        type
+        __typename
+      }
+      ... on PhotoHonorAmbassadorsPick {
+        ambassador {
           id
+          avatar
+          __typename
+        }
+        __typename
+      }
+      ... on PhotoHonorPxGallery {
+        gallery {
+          id
+          name
+          __typename
         }
         __typename
       }
     }
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
+    __typename
   }
 }
 """
 
-LikedPhotosQueryRendererQuery = """\
-query LikedPhotosQueryRendererQuery($pageSize: Int) {
-  ...LikedPhotosPaginationContainer_query_RlXb8
-}
-
-fragment LikedPhotosPaginationContainer_query_RlXb8 on Query {
-  likedPhotos(first: $pageSize) {
+PageGalleryItems = """\
+query PageGalleryItems($galleryId: ID!, $first: Int!, $after: String, $excludeNsfw: Boolean) {
+  pageGalleryItems(
+    galleryId: $galleryId
+    first: $first
+    after: $after
+    excludeNsfw: $excludeNsfw
+  ) {
     edges {
+      cursor
       node {
-        id
-        legacyId
-        canonicalPath
-        name
-        description
-        category
-        uploadedAt
-        location
-        width
-        height
-        isLikedByMe
-        notSafeForWork
-        tags
-        photographer: uploader {
+        ... on Photo {
+          __typename
           id
-          legacyId
-          username
-          displayName
-          canonicalPath
-          avatar {
-            images {
-              url
-              id
-            }
-            id
+          isDeleted
+          questInfo {
+            rewardQuestName
+            __typename
           }
-          followedByUsers {
-            totalCount
+          honors {
+            ...PhotoHonorFields
+            __typename
+          }
+          title
+          licensing {
+            status
+            __typename
+          }
+          isPrivate
+          isInReview
+          isLikedByMe
+          isNsfw
+          viewerHasReposted
+          likeCount
+          viewCount
+          width
+          height
+          takenAt
+          uploadedAt
+          uploader {
+            id
+            username
+            avatar
+            displayName
+            isBlockedByMe
             isFollowedByMe
+            isFollowingMe
+            membership {
+              membership
+              __typename
+            }
+            __typename
+          }
+          urls {
+            size_600
+            size_1024
+            size_2048
+            size_4k
+            __typename
           }
         }
-        images(sizes: [33, 35]) {
-          size
-          url
-          jpegUrl
-          webpUrl
+        ... on PhotoGroup {
+          __typename
           id
+          isDeleted
+          honors {
+            ...PhotoHonorFields
+            __typename
+          }
+          title
+          description
+          numCount
+          publicItemCount
+          isPrivate
+          isInReview
+          isLikedByMe
+          isNsfw
+          viewerHasReposted
+          likeCount
+          viewCount
+          uploader {
+            id
+            username
+            avatar
+            displayName
+            isBlockedByMe
+            isFollowedByMe
+            isFollowingMe
+            membership {
+              membership
+              __typename
+            }
+            __typename
+          }
+          coverPhotos(first: 4) {
+            id
+            width
+            height
+            urls {
+              size_600
+              size_1024
+              size_2048
+              size_4k
+              __typename
+            }
+            __typename
+          }
+        }
+        ... on Video {
+          __typename
+          id
+          isDeleted
+          isInReview
+          isPrivate
+          questInfo {
+            rewardQuestName
+            __typename
+          }
+          honors {
+            ...PhotoHonorFields
+            __typename
+          }
+          title
+          coverUrl
+          videoUrl
+          width
+          height
+          isNsfw
+          isLikedByMe
+          uploader {
+            id
+            username
+            avatar
+            displayName
+            isBlockedByMe
+            isFollowedByMe
+            isFollowingMe
+            membership {
+              membership
+              __typename
+            }
+            __typename
+          }
         }
         __typename
       }
-      cursor
+      __typename
     }
     pageInfo {
       endCursor
       hasNextPage
+      hasPreviousPage
+      __typename
     }
+    __typename
+  }
+}
+
+fragment PhotoHonorFields on PhotoHonor {
+  __typename
+  ... on PhotoHonorSelected {
+    type
+    __typename
+  }
+  ... on PhotoHonorAmbassadorsPick {
+    ambassador {
+      id
+      avatar
+      __typename
+    }
+    __typename
+  }
+  ... on PhotoHonorPxGallery {
+    gallery {
+      id
+      name
+      __typename
+    }
+    __typename
   }
 }
 """
 
-LikedPhotosPaginationContainerQuery = """\
-query LikedPhotosPaginationContainerQuery($cursor: String, $pageSize: Int) {
-  ...LikedPhotosPaginationContainer_query_3e6UuE
+getUserProfile = """\
+query getUserProfile($username: String!) {
+  getUser(username: $username) {
+    ...ProfileUserFields
+    __typename
+  }
 }
 
-fragment LikedPhotosPaginationContainer_query_3e6UuE on Query {
-  likedPhotos(first: $pageSize, after: $cursor) {
-    edges {
-      node {
-        id
-        legacyId
-        canonicalPath
-        name
-        description
-        category
-        uploadedAt
-        location
-        width
-        height
-        isLikedByMe
-        notSafeForWork
-        tags
-        photographer: uploader {
-          id
-          legacyId
-          username
-          displayName
-          canonicalPath
-          avatar {
-            images {
-              url
-              id
-            }
-            id
-          }
-          followedByUsers {
-            totalCount
-            isFollowedByMe
-          }
-        }
-        images(sizes: [33, 35]) {
-          size
-          url
-          jpegUrl
-          webpUrl
-          id
-        }
-        __typename
-      }
-      cursor
-    }
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
+fragment ProfileUserFields on User {
+  id
+  username
+  displayName
+  avatar
+  cover
+  about
+  location
+  level
+  sex
+  followeesCount
+  followersCount
+  likeCount
+  publicResourceCount
+  publicGalleryCount
+  userStats {
+    numQuestEntered
+    __typename
   }
+  isFollowedByMe
+  isFollowingMe
+  isBlockedByMe
+  userType
+  membership {
+    membership
+    __typename
+  }
+  contacts {
+    id
+    type
+    contact
+    visible
+    __typename
+  }
+  coverPhotos(first: 4) {
+    id
+    urls {
+      size_600
+      size_1024
+      size_2048
+      size_4k
+      __typename
+    }
+    __typename
+  }
+  profileTabs(isMobile: false) {
+    id
+    tab
+    visible
+    __typename
+  }
+  __typename
 }
 """

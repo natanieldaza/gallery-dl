@@ -83,7 +83,7 @@ class XhamsterGalleryExtractor(XhamsterExtractor):
         self.data = None
 
         while True:
-            yield from data["photosGalleryModel"]["photos"]
+            yield from data["galleryPage"]["galleryModel"]["photos"]
 
             pagination = data["galleryPage"]["paginationProps"]
             if pagination["currentPageNumber"] >= pagination["lastPageNumber"]:

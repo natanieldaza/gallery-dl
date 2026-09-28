@@ -525,6 +525,13 @@ class TestText(unittest.TestCase):
         self.assertEqual(f(" 123.89 "), 124)
         self.assertEqual(f("0.5M"), round(0.5 * 1024**2))
 
+        # 'base' argument
+        self.assertEqual(f("0", base=1000), 0)
+        self.assertEqual(f("50", base=1000), 50)
+        self.assertEqual(f("50k", base=1000), 50 * 1_000)
+        self.assertEqual(f("50m", base=1000), 50 * 1_000_000)
+        self.assertEqual(f(" 50p ", base=10), 50 * 100_000)
+
         # invalid arguments
         for value in INVALID_ALT:
             self.assertEqual(f(value), 0)

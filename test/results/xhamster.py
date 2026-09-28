@@ -34,8 +34,6 @@ __tests__ = (
         "tags"       : [
             "Babe",
             "Public Nudity",
-            "Take",
-            "Taking",
             "Masturbation",
             "Take Me",
         ],

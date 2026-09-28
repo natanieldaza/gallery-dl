@@ -1175,6 +1175,37 @@ class PythonTest(BasePostprocessorTest):
         self._trigger()
         self.assertEqual(self.pathfmt.kwdict["_result"], 24)
 
+    def test_arguments(self):
+        path = os.path.join(self.dir.name, "module.py")
+        self._write_module(path)
+
+        self._create({
+            "function": f"{path}:calc_fma",
+            "args"    : ["{'1'!i}", "\fE 2", "3"],
+        })
+
+        self.assertNotIn("_result", self.pathfmt.kwdict)
+        self._trigger()
+        self.assertEqual(self.pathfmt.kwdict["_result"], 1*2+3)
+
+    def test_arguments_kwargs(self):
+        path = os.path.join(self.dir.name, "module.py")
+        self._write_module(path)
+
+        self._create({
+            "function": f"{path}:calc_fma",
+            "args"    : ["{_v1:A-120/I}"],
+            "kwargs"  : {"c": "\fF -{2*_v1 - _v2}",
+                         "b": "\fE _v2 // 23"},
+        }, {
+            "_v1": 123,
+            "_v2": 234,
+        })
+
+        self.assertNotIn("_result", self.pathfmt.kwdict)
+        self._trigger()
+        self.assertEqual(self.pathfmt.kwdict["_result"], 3*10-12)
+
     def test_eval(self):
         self._create({"mode": "eval", "expression": "abort()"})
 
@@ -1209,6 +1240,9 @@ class PythonTest(BasePostprocessorTest):
             fp.write("""
 def calc(kwdict):
     kwdict["_result"] = kwdict["_value"] * 2
+
+def calc_fma(kwdict, a, b, c):
+    kwdict["_result"] = a * b + int(c)
 """)
 
 

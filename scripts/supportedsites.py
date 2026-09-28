@@ -60,6 +60,7 @@ CATEGORY_MAP = {
     "comedywildlifephoto": "Comedy Wildlife Photography Awards",
     "comicartfans"   : "Comic Art Fans",
     "comicvine"      : "Comic Vine",
+    "coomerfans"     : "Coomer Fans",
     "cyberfile"      : "CyberFile",
     "dankefuerslesen": "Danke fürs Lesen",
     "dcinside"       : "DCinside",
@@ -222,6 +223,7 @@ CATEGORY_MAP = {
     "socialmediagirlsforum": "Social Media Girls Forums",
     "sofurry"        : "SoFurry",
     "speakerdeck"    : "Speaker Deck",
+    "steamcommunity" : "Steam Community",
     "steamgriddb"    : "SteamGridDB",
     "subscribestar"  : "SubscribeStar",
     "tbib"           : "The Big ImageBoard",
@@ -294,6 +296,10 @@ SUBCATEGORY_MAP = {
     "related-pin"    : "related Pins",
     "related-board"  : "",
 
+    "500px": {
+        "groups": "Photo Groups",
+        "post"  : ("Photos", "Videos"),
+    },
     "arcalive": {
         "user": "User Posts",
     },
@@ -753,7 +759,7 @@ def subcategory_text(bc, c, sc):
         if sc in scm:
             txt = scm[sc]
             if not isinstance(txt, str):
-                txt = ", ".join(txt)
+                txt = " | ".join(txt)
             return txt
 
     if bc and bc in SUBCATEGORY_MAP:
@@ -761,7 +767,7 @@ def subcategory_text(bc, c, sc):
         if sc in scm:
             txt = scm[sc]
             if not isinstance(txt, str):
-                txt = ", ".join(txt)
+                txt = " | ".join(txt)
             return txt
 
     if sc in SUBCATEGORY_MAP:

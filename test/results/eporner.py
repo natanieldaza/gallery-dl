@@ -11,10 +11,11 @@ __tests__ = (
 {
     "#url"     : "https://www.eporner.com/gallery/mHNhErACQFE/NaughtyAmerica-Lolly-Dames-My-Wife-s-Hot-Friend-Big-Booty-Big-Tits-Lolly-Dames-Gets-Her-Pussy-Slammed-Hard/",
     "#class"   : eporner.EpornerGalleryExtractor,
-    "#pattern" : r"https://static\-eu\-cdn\.eporner\.com/gallery/FE/CQ/mHNhErACQFE/\d+\-image\-\d+\.jpg",
+    "#pattern" : r"https://static\-\w+\-cdn\.eporner\.com/gallery/FE/CQ/mHNhErACQFE/\d+\-image\-\d+\.jpg",
     "#count"   : 261,
 
     "count"      : 261,
+    "date"       : "dt:2023-09-01 00:00:00",
     "num"        : range(1, 261),
     "description": "NaughtyAmerica Lolly Dames - My Wife's Hot Friend - Big Booty Big Tits Lolly Dames Gets Her Pussy Slammed Hard sexy gallery with 261 pics. Eporner is the largest hd porn source.",
     "extension"  : "jpg",
@@ -30,6 +31,7 @@ __tests__ = (
         "mature",
         "housewives",
         "big tits",
+        "pov porn",
         "blonde",
         "big ass",
         "milf",

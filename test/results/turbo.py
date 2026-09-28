@@ -12,8 +12,8 @@ __tests__ = (
     "#url"  : "https://turbo.cr/a/2c5iuWHTumH",
     "#class": turbo.TurboAlbumExtractor,
     "#pattern": (
-        r"https://dl\d+.turbocdn.st/data/3b125e3fb4b98693f17d85cb53590215.mp4\?exp=\d+&token=\w+&fn=3b125e3fb4b98693f17d85cb53590215.mp4",
-        r"https://dl\d+.turbocdn.st/data/3b1ccebf3576f8d5aac3ee0e5a12da95.mp4\?exp=\d+&token=\w+&fn=3b1ccebf3576f8d5aac3ee0e5a12da95.mp4",
+        r"https://dl\d+.turbocdn.st/turbo/data/3b125e3fb4b98693f17d85cb53590215.mp4\?exp=\d+&token=\w+&fn=3b125e3fb4b98693f17d85cb53590215.mp4",
+        r"https://dl\d+.turbocdn.st/turbo/data/3b1ccebf3576f8d5aac3ee0e5a12da95.mp4\?exp=\d+&token=\w+&fn=3b1ccebf3576f8d5aac3ee0e5a12da95.mp4",
     ),
 
     "album_id"   : "2c5iuWHTumH",
@@ -38,9 +38,9 @@ __tests__ = (
     "#category": ("lolisafe", "turbo", "album"),
     "#class"   : turbo.TurboAlbumExtractor,
     "#pattern" : (
-        r"https://dl\d+.turbocdn.st/data/WkD7hRaHdBpBI.mp4\?exp=\d+&token=\w+&fn=3b1ccebf3576f8d5aac3ee0e5a12da95-6lC7mKrJst8.mp4",
-        r"https://dl\d+.turbocdn.st/data/eJ9fLurGdaHqS.mp4\?exp=\d+&token=\w+&fn=3b125e3fb4b98693f17d85cb53590215-ze10Ohbpoy5.mp4",
-        r"https://dl\d+.turbocdn.st/data/jZqe1xxqw9bX7.mp4\?exp=\d+&token=\w+&fn=test-%E3%83%86%E3%82%B9%E3%83%88-%2522%26%3E.mp4",
+        r"https://dl\d+.turbocdn.st/turbo/data/WkD7hRaHdBpBI.mp4\?exp=\d+&token=\w+&fn=3b1ccebf3576f8d5aac3ee0e5a12da95-6lC7mKrJst8.mp4",
+        r"https://dl\d+.turbocdn.st/turbo/data/eJ9fLurGdaHqS.mp4\?exp=\d+&token=\w+&fn=3b125e3fb4b98693f17d85cb53590215-ze10Ohbpoy5.mp4",
+        r"https://dl\d+.turbocdn.st/turbo/data/jZqe1xxqw9bX7.mp4\?exp=\d+&token=\w+&fn=test-%E3%83%86%E3%82%B9%E3%83%88-%2522%26%3E.mp4",
     ),
 
     "album_id"   : "FiphGijfJoR",
@@ -50,7 +50,7 @@ __tests__ = (
     "num"        : range(1, 3),
     "description": """test-テスト-"&> description""",
     "extension"  : "mp4",
-    "file"       : r"re:https://dl\d+.turbocdn.st/data/.+",
+    "file"       : r"re:https://dl\d+.turbocdn.st/turbo/data/.+",
     "filename"   : str,
     "id"         : str,
     "name"       : str,
@@ -66,7 +66,7 @@ __tests__ = (
 {
     "#url"  : "https://turbo.cr/embed/6lC7mKrJst8",
     "#class": turbo.TurboMediaExtractor,
-    "#pattern"     : r"https://dl\d+.turbocdn.st/data/3b1ccebf3576f8d5aac3ee0e5a12da95.mp4",
+    "#pattern"     : r"https://dl\d+.turbocdn.st/turbo/data/3b1ccebf3576f8d5aac3ee0e5a12da95.mp4",
     "#sha1_content": "39037a029b3fe96f838b4545316caaa545c84075",
 
     "count"    : 1,
@@ -106,7 +106,7 @@ __tests__ = (
     "#comment" : "'turbovid' URL",
     "#category": ("lolisafe", "turbo", "media"),
     "#class"   : turbo.TurboMediaExtractor,
-    "#pattern" : r"https://dl\d+.turbocdn.st/data/\w+.mp4",
+    "#pattern" : r"https://dl\d+.turbocdn.st/turbo/data/\w+.mp4",
 
     "extension"  : "mp4",
     "file"       : str,

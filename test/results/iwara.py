@@ -319,6 +319,13 @@ Twitter : https://x.com/croove_nsfw\
 },
 
 {
+    "#url"     : "https://www.iwara.ai/video/6QvQvzZnELJ9vv/bluearchive-rio",
+    "#comment" : "'iwara.tv' video at 'iwara.ai' URL",
+    "#class"   : iwara.IwaraVideoExtractor,
+    "#pattern" : r"https://\w+.iwara.tv/download\?hash=\w+&filename=7ba6e734-b9df-4588-88fc-4eef2bbf5c56_Source.mp4&path=2025%2F07%2F05&expires=\w+",
+},
+
+{
     "#url"        : "https://www.iwara.tv/image/5m3gLfcei6BQsL/sparkle",
     "#category"   : ("", "iwara", "image"),
     "#class"      : iwara.IwaraImageExtractor,

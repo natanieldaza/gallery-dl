@@ -253,6 +253,9 @@ def clear():
     _config.clear()
 
 
+getg = _config.get
+
+
 def get(path, key, default=None, conf=_config):
     """Get the value of property 'key' or a default value"""
     try:

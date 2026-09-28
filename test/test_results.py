@@ -110,7 +110,7 @@ class TestExtractorResults(unittest.TestCase):
             expected = {expected[1:]} if expected[0] == "~" else (expected,)
 
         if isinstance(expected, set):
-            self.assertLessEqual(len(output), len(expected), "#log/count")
+            self.assertLessEqual(len(expected), len(output), "#log/count")
             for exp in expected:
                 for out in output:
                     try:
@@ -119,7 +119,7 @@ class TestExtractorResults(unittest.TestCase):
                     except AssertionError:
                         pass
                 else:
-                    self.fail(f'#log/Unmatched "{expected}"')
+                    self.fail(f'#log/Unmatched "{exp}"')
         else:
             self.assertEqual(len(output), len(expected), "#log/count")
             for exp, out in zip(expected, output):

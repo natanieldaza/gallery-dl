@@ -12,11 +12,12 @@ import os
 import logging
 from . import util, formatter
 
+CACHE_CONNECTIONS = {}
 log = logging.getLogger("archive")
 
 
-def connect(path, prefix, format,
-            table=None, mode=None, pragma=None, pathfmt=None, cache_key=None):
+def connect(path, prefix, format, table=None, mode=None, reuse=False,
+            pragma=None, pathfmt=None, cache_key=None):
     keygen = formatter.parse(prefix + format).format_map
 
     if isinstance(path, str) and path.startswith(
@@ -37,7 +38,14 @@ def connect(path, prefix, format,
     if pathfmt is not None and table:
         table = formatter.parse(table).format_map(pathfmt.kwdict)
 
-    return cls(path, keygen, table, pragma, cache_key)
+    return cls(path, keygen, table, pragma, cache_key, reuse)
+
+
+def close_cached():
+    log.debug("Closing database connections")
+    for path, con in CACHE_CONNECTIONS.items():
+        log.debug("- %s", path)
+        con.close()
 
 
 def sanitize(name):
@@ -47,22 +55,11 @@ def sanitize(name):
 class DownloadArchive():
     _sqlite3 = None
 
-    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None):
-        if self._sqlite3 is None:
-            DownloadArchive._sqlite3 = __import__("sqlite3")
-
-        try:
-            con = self._sqlite3.connect(
-                path, timeout=60, check_same_thread=False)
-        except self._sqlite3.OperationalError:
-            os.makedirs(os.path.dirname(path))
-            con = self._sqlite3.connect(
-                path, timeout=60, check_same_thread=False)
-        con.isolation_level = None
-
+    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None,
+                 reuse=False):
+        self.connection = con = self.connect(path, reuse, pragma)
         self.keygen = keygen
-        self.connection = con
-        self.close = con.close
+        self.close = util.noop if reuse else con.close
         self.cursor = cursor = con.cursor()
         self._cache_key = cache_key or "_archive_key"
 
@@ -76,10 +73,6 @@ class DownloadArchive():
             f"INSERT OR IGNORE INTO {table} "
             f"(entry) VALUES (?)")
 
-        if pragma:
-            for stmt in pragma:
-                cursor.execute(f"PRAGMA {stmt}")
-
         try:
             cursor.execute(f"CREATE TABLE IF NOT EXISTS {table} "
                            f"(entry TEXT PRIMARY KEY) WITHOUT ROWID")
@@ -87,6 +80,34 @@ class DownloadArchive():
             # fallback for missing WITHOUT ROWID support (#553)
             cursor.execute(f"CREATE TABLE IF NOT EXISTS {table} "
                            f"(entry TEXT PRIMARY KEY)")
+
+    def connect(self, path, reuse=False, pragma=None):
+        if reuse and (con := CACHE_CONNECTIONS.get(path)):
+            return con
+
+        if self._sqlite3 is None:
+            DownloadArchive._sqlite3 = __import__("sqlite3")
+
+        try:
+            con = self._sqlite3.connect(
+                path, timeout=60, check_same_thread=False)
+        except self._sqlite3.OperationalError:
+            os.makedirs(os.path.dirname(path))
+            con = self._sqlite3.connect(
+                path, timeout=60, check_same_thread=False)
+        con.isolation_level = None
+
+        if pragma:
+            cursor = con.cursor()
+            for stmt in pragma:
+                cursor.execute("PRAGMA " + stmt)
+        if reuse:
+            if not CACHE_CONNECTIONS:
+                import atexit
+                atexit.register(close_cached)
+            CACHE_CONNECTIONS[path] = con
+
+        return con
 
     def add(self, kwdict):
         """Add item described by 'kwdict' to archive"""
@@ -105,9 +126,10 @@ class DownloadArchive():
 
 class DownloadArchiveMemory(DownloadArchive):
 
-    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None):
+    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None,
+                 reuse=False):
         DownloadArchive.__init__(
-            self, path, keygen, table, pragma, cache_key)
+            self, path, keygen, table, pragma, cache_key, reuse)
         self.keys = set()
 
     def add(self, kwdict):
@@ -144,13 +166,11 @@ class DownloadArchiveMemory(DownloadArchive):
 class DownloadArchivePostgresql():
     _psycopg = None
 
-    def __init__(self, uri, keygen, table=None, pragma=None, cache_key=None):
-        if self._psycopg is None:
-            DownloadArchivePostgresql._psycopg = __import__("psycopg")
-
-        self.connection = con = self._psycopg.connect(uri)
+    def __init__(self, uri, keygen, table=None, pragma=None, cache_key=None,
+                 reuse=False):
+        self.connection = con = self.connect(uri, reuse)
         self.cursor = cursor = con.cursor()
-        self.close = con.close
+        self.close = util.noop if reuse else con.close
         self.keygen = keygen
         self._cache_key = cache_key or "_archive_key"
 
@@ -174,6 +194,22 @@ class DownloadArchivePostgresql():
                       con, exc.__class__.__name__, table, exc)
             con.rollback()
             raise
+
+    def connect(self, path, reuse=False):
+        if reuse and (con := CACHE_CONNECTIONS.get(path)):
+            return con
+
+        if self._psycopg is None:
+            DownloadArchivePostgresql._psycopg = __import__("psycopg")
+
+        con = self._psycopg.connect(path)
+        if reuse:
+            if not CACHE_CONNECTIONS:
+                import atexit
+                atexit.register(close_cached)
+            CACHE_CONNECTIONS[path] = con
+
+        return con
 
     def add(self, kwdict):
         key = kwdict.get(self._cache_key) or self.keygen(kwdict)
@@ -202,9 +238,10 @@ class DownloadArchivePostgresql():
 
 class DownloadArchivePostgresqlMemory(DownloadArchivePostgresql):
 
-    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None):
+    def __init__(self, path, keygen, table=None, pragma=None, cache_key=None,
+                 reuse=False):
         DownloadArchivePostgresql.__init__(
-            self, path, keygen, table, pragma, cache_key)
+            self, path, keygen, table, pragma, cache_key, reuse)
         self.keys = set()
 
     def add(self, kwdict):

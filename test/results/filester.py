@@ -61,4 +61,30 @@ __tests__ = (
     "uuid"       : "iso:uuid",
 },
 
+{
+    "#url"     : "https://filester.me/f/60b41cbbd900ca35",
+    "#comment" : "password-protected folder - no password (#467)",
+    "#class"   : filester.FilesterFolderExtractor,
+    "#exception": "AuthRequired",
+},
+
+{
+    "#url"     : "https://filester.me/f/60b41cbbd900ca35",
+    "#comment" : "password-protected folder - wrong password (#467)",
+    "#class"   : filester.FilesterFolderExtractor,
+    "#options"  : {"password": "foobar"},
+    "#exception": "AuthorizationError",
+},
+
+{
+    "#url"     : "https://filester.me/f/60b41cbbd900ca35",
+    "#comment" : "password-protected folder - correct password (#467)",
+    "#class"   : filester.FilesterFolderExtractor,
+    "#options" : {"password": "abc123#?^DEF"},
+    "#pattern" : (
+        r"https://fsc\d+.cdn.cr/v2/33049bc6-36e6-4297-a107-37fcc8ba015b.jpg\?token=[0-9a-f.]+&download=true",
+        r"https://fsc\d+.cdn.cr/v2/08730336-738d-4056-8dd4-964611c99d9f.jpg\?token=[0-9a-f.]+&download=true",
+    ),
+},
+
 )

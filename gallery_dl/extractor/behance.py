@@ -11,6 +11,8 @@
 from .common import Extractor, Message
 from .. import text, util
 
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?behance\.net"
+
 
 class BehanceExtractor(Extractor):
     """Base class for behance extractors"""
@@ -23,7 +25,7 @@ class BehanceExtractor(Extractor):
     def _init(self):
         self._bcp = self.cookies.get("bcp", domain="www.behance.net")
         if not self._bcp:
-            self._bcp = "4c34489d-914c-46cd-b44c-dfd0e661136d"
+            self._bcp = util.generate_uuid()
             self.cookies.set("bcp", self._bcp, domain="www.behance.net")
 
     def items(self):
@@ -34,14 +36,41 @@ class BehanceExtractor(Extractor):
     def galleries(self):
         """Return all relevant gallery URLs"""
 
-    def _request_graphql(self, endpoint, variables):
+    def request_html(self, url, **kwargs):
+        kwargs["headers"] = {
+            "Accept": "text/html,application/xhtml+xml,"
+                      "application/xml;q=0.9,*/*;q=0.8",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Priority": "u=0, i",
+        }
+        kwargs["cookies"] = {
+            "gk_suid": "50010966",
+            "gki": "feature_progressive_profile:false,",
+            "gpv": "behance.net:profile:default",
+        }
+
+        try:
+            return Extractor.request(self, url, **kwargs).text
+        except self.exc.HttpError as exc:
+            if exc.status != 403 or not (value := text.extr(
+                    exc.response.text, "js_challenge_value=", ";")):
+                raise
+
+        kwargs["interval"] = False
+        self.cookies.set("js_challenge_value", value, domain="www.behance.net")
+        return Extractor.request(self, url, **kwargs).text
+
+    def request_graphql(self, opname, variables):
         url = self.root + "/v3/graphql"
         headers = {
             "X-BCP" : self._bcp,
             "X-Requested-With": "XMLHttpRequest",
         }
         data = {
-            "query"    : self.utils("graphql", endpoint),
+            "query"    : self.utils("graphql", opname),
             "variables": variables,
         }
 
@@ -86,12 +115,8 @@ class BehanceGalleryExtractor(BehanceExtractor):
     directory_fmt = ("{category}", "{owners:J, }", "{id} {name}")
     filename_fmt = "{category}_{id}_{num:>02}.{extension}"
     archive_fmt = "{id}_{num}"
-    pattern = r"(?:https?://)?(?:www\.)?behance\.net/gallery/(\d+)"
+    pattern = BASE_PATTERN + r"/gallery/(\d+)"
     example = "https://www.behance.net/gallery/12345/TITLE"
-
-    def __init__(self, match):
-        BehanceExtractor.__init__(self, match)
-        self.gallery_id = match[1]
 
     def _init(self):
         BehanceExtractor._init(self)
@@ -117,17 +142,8 @@ class BehanceGalleryExtractor(BehanceExtractor):
 
     def get_gallery_data(self):
         """Collect gallery info dict"""
-        url = f"{self.root}/gallery/{self.gallery_id}/a"
-        cookies = {
-            "gk_suid": "14118261",
-            "gki": "feature_3_in_1_checkout_test:false,hire_browse_get_quote_c"
-                   "ta_ab_test:false,feature_hire_dashboard_services_ab_test:f"
-                   "alse,feature_show_details_jobs_row_ab_test:false,feature_a"
-                   "i_freelance_project_create_flow:false,",
-            "ilo0": "true",
-            "originalReferrer": "",
-        }
-        page = self.request(url, cookies=cookies).text
+        url = f"{self.root}/gallery/{self.groups[0]}/a"
+        page = self.request_html(url)
 
         data = util.json_loads(text.extr(
             page, 'id="beconfig-store_state">', '</script>'))
@@ -227,59 +243,53 @@ class BehanceUserExtractor(BehanceExtractor):
     """Extractor for a user's galleries from www.behance.net"""
     subcategory = "user"
     categorytransfer = True
-    pattern = r"(?:https?://)?(?:www\.)?behance\.net/([^/?#]+)/?$"
+    pattern = BASE_PATTERN + r"/([^/?#]+)/?$"
     example = "https://www.behance.net/USER"
-
-    def __init__(self, match):
-        BehanceExtractor.__init__(self, match)
-        self.user = match[1]
 
     def galleries(self):
         endpoint = "GetProfileProjects"
         variables = {
-            "username": self.user,
+            "username": self.groups[0],
             "after"   : "MAo=",  # "0" in base64
         }
 
         while True:
-            data = self._request_graphql(endpoint, variables)
+            data = self.request_graphql(endpoint, variables)
             items = data["user"]["profileProjects"]
             yield from items["nodes"]
 
-            if not items["pageInfo"]["hasNextPage"]:
-                return
-            variables["after"] = items["pageInfo"]["endCursor"]
+            info = items["pageInfo"]
+            if not info["hasNextPage"]:
+                break
+            variables["afterItem"] = info["endCursor"]
 
 
 class BehanceCollectionExtractor(BehanceExtractor):
     """Extractor for a collection's galleries from www.behance.net"""
     subcategory = "collection"
     categorytransfer = True
-    pattern = r"(?:https?://)?(?:www\.)?behance\.net/collection/(\d+)"
+    pattern = BASE_PATTERN + r"/(?:moodboard|collection)/(\d+)"
     example = "https://www.behance.net/collection/12345/TITLE"
-
-    def __init__(self, match):
-        BehanceExtractor.__init__(self, match)
-        self.collection_id = match[1]
 
     def galleries(self):
         endpoint = "GetMoodboardItemsAndRecommendations"
         variables = {
             "afterItem": "MAo=",  # "0" in base64
             "firstItem": 40,
-            "id"       : int(self.collection_id),
+            "id"       : int(self.groups[0]),
             "shouldGetItems"          : True,
             "shouldGetMoodboardFields": False,
             "shouldGetRecommendations": False,
         }
 
         while True:
-            data = self._request_graphql(endpoint, variables)
+            data = self.request_graphql(endpoint, variables)
             items = data["moodboard"]["items"]
 
             for node in items["nodes"]:
                 yield node["entity"]
 
-            if not items["pageInfo"]["hasNextPage"]:
-                return
-            variables["afterItem"] = items["pageInfo"]["endCursor"]
+            info = items["pageInfo"]
+            if not info["hasNextPage"]:
+                break
+            variables["afterItem"] = info["endCursor"]

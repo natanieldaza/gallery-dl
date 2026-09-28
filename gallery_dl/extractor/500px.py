@@ -9,7 +9,7 @@
 """Extractors for https://500px.com/"""
 
 from .common import Extractor, Message
-from .. import util
+from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?(?:web\.)?500px\.com"
 
@@ -17,75 +17,80 @@ BASE_PATTERN = r"(?:https?://)?(?:web\.)?500px\.com"
 class _500pxExtractor(Extractor):
     """Base class for 500px extractors"""
     category = "500px"
-    directory_fmt = ("{category}", "{user[username]}")
-    filename_fmt = "{id}_{name}.{extension}"
+    directory_fmt = ("{category}", "{uploader[username]}")
+    filename_fmt = "{date:%Y-%m-%d} {title} ({id}).{extension}"
     archive_fmt = "{id}"
     root = "https://500px.com"
     cookies_domain = ".500px.com"
 
-    def items(self):
-        data = self.metadata()
+    def _init(self):
+        self.headers = {"x-500px-platform": "Web"}
 
+        name = "x-500px-device-id-prod"
+        if value := self.cookies.get(name, domain=self.cookies_domain):
+            self.headers[name] = value
+        else:
+            self.headers[name] = value = util.generate_uuid()
+            self.cookies.set(name, value, domain=self.cookies_domain)
+
+        name = "x-500px-csrf-token-prod"
+        if value := self.cookies.get(name, domain=self.cookies_domain):
+            self.headers[name] = value
+        else:
+            self.headers[name] = value = util.generate_token(43)
+            self.cookies.set(name, value, domain=self.cookies_domain)
+
+    def items(self):
         for photo in self.photos():
-            url = photo["images"][-1]["url"]
-            photo["extension"] = photo["image_format"]
-            if data:
-                photo.update(data)
+            if "videoUrl" in photo:
+                url = photo["videoUrl"]
+                photo["type"] = "video"
+            else:
+                url = photo["urls"]["size_4k"]
+                photo["type"] = "photo"
+                photo["date_taken"] = self.parse_datetime_iso(
+                    photo["takenAt"])
+            photo["id_num"] = url.rsplit("/", 2)[1]
+            photo["date"] = self.parse_datetime_iso(photo["uploadedAt"])
+            text.nameext_from_url(url, photo)
             yield Message.Directory, "", photo
             yield Message.Url, url, photo
 
-    def metadata(self):
-        """Returns general metadata"""
-
-    def photos(self):
-        """Returns an iterable containing all relevant photo IDs"""
-
-    def _extend(self, edges):
-        """Extend photos with additional metadata and higher resolution URLs"""
-        ids = [str(edge["node"]["legacyId"]) for edge in edges]
-
-        url = "https://api.500px.com/v1/photos"
-        params = {
-            "expanded_user_info"    : "true",
-            "include_tags"          : "true",
-            "include_geo"           : "true",
-            "include_equipment_info": "true",
-            "vendor_photos"         : "true",
-            "include_licensing"     : "true",
-            "include_releases"      : "true",
-            "liked_by"              : "1",
-            "following_sample"      : "100",
-            "image_size"            : "4096",
-            "ids"                   : ",".join(ids),
-        }
-
-        photos = self._request_api(url, params)["photos"]
-        return [
-            photos[pid] for pid in ids
-            if pid in photos or
-            self.log.warning("Unable to fetch photo %s", pid)
-        ]
-
-    def _request_api(self, url, params):
+    def request_graphql(self, opname, variables):
+        url = "https://api-neo.500px.com/graphql"
         headers = {
-            "x-csrf-token": self.cookies.get(
-                "x-csrf-token", domain=".500px.com"),
+            **self.headers,
+            "Accept": "application/graphql-response+json,"
+                      "application/json;q=0.9",
+            "content-type": "application/json",
         }
-        return self.request_json(url, headers=headers, params=params)
-
-    def _request_graphql(self, opname, variables):
-        url = "https://api.500px.com/graphql"
-        headers = {
-            "x-csrf-token": self.cookies.get(
-                "x-csrf-token", domain=".500px.com"),
-        }
-        data = {
+        body = {
             "operationName": opname,
-            "variables"    : util.json_dumps(variables),
+            "variables"    : variables,
+            "extensions"   : {"clientLibrary": {
+                "name"     : "@apollo/client",
+                "version"  : "4.1.6",
+            }},
             "query"        : self.utils("graphql", opname),
         }
         return self.request_json(
-            url, method="POST", headers=headers, json=data)["data"]
+            url, method="POST", headers=headers, json=body,
+        )["data"].popitem()[1]
+
+    def _pagination(self, opname, variables):
+        while True:
+            data = self.request_graphql(opname, variables)
+
+            if isinstance(data, list):
+                yield from data
+            else:
+                for edge in data["edges"]:
+                    yield edge["node"]
+
+            info = data.get("pageInfo")
+            if not info or not info.get("hasNextPage"):
+                break
+            variables["after"] = info["endCursor"]
 
 
 class _500pxUserExtractor(_500pxExtractor):
@@ -94,120 +99,80 @@ class _500pxUserExtractor(_500pxExtractor):
     pattern = BASE_PATTERN + r"/(?!photo/|liked)(?:p/)?([^/?#]+)/?(?:$|[?#])"
     example = "https://500px.com/USER"
 
-    def __init__(self, match):
-        _500pxExtractor.__init__(self, match)
-        self.user = match[1]
-
     def photos(self):
-        variables = {"username": self.user, "pageSize": 20}
-        photos = self._request_graphql(
-            "OtherPhotosQuery", variables,
-        )["user"]["photos"]
+        self.kwdict["user"] = user = self.request_graphql(
+            "getUserProfile", {"username": self.groups[0]})
 
-        while True:
-            yield from self._extend(photos["edges"])
+        variables = {
+            "sort"         : "CREATED_AT_DESC",
+            "first"        : 20,
+            "resourceTypes": ("PHOTO", "PHOTO_GROUP", "VIDEO"),
+            "excludeNsfw"  : False,
+            "userId"       : user["id"],
+        }
 
-            if not photos["pageInfo"]["hasNextPage"]:
-                return
-
-            variables["cursor"] = photos["pageInfo"]["endCursor"]
-            photos = self._request_graphql(
-                "OtherPhotosPaginationContainerQuery", variables,
-            )["userByUsername"]["photos"]
+        return self._pagination("pageResources", variables)
 
 
 class _500pxGalleryExtractor(_500pxExtractor):
     """Extractor for photo galleries on 500px.com"""
     subcategory = "gallery"
-    directory_fmt = ("{category}", "{user[username]}", "{gallery[name]}")
-    pattern = (BASE_PATTERN + r"/(?!photo/)(?:p/)?"
-               r"([^/?#]+)/galleries/([^/?#]+)")
-    example = "https://500px.com/USER/galleries/GALLERY"
+    directory_fmt = ("{category}", "{user[username]}",
+                     "Galleries", "{gallery[name]} ({gallery[id]})")
+    pattern = BASE_PATTERN + r"/gallery/([^/?#]+)"
+    example = "https://500px.com/gallery/ID"
 
-    def __init__(self, match):
-        _500pxExtractor.__init__(self, match)
-        self.user_name, self.gallery_name = match.groups()
-        self.user_id = self._photos = None
-
-    def metadata(self):
-        user = self._request_graphql(
-            "ProfileRendererQuery", {"username": self.user_name},
-        )["profile"]
-        self.user_id = str(user["legacyId"])
+    def photos(self):
+        self.kwdict["gallery"] = gallery = self.request_graphql(
+            "GetGalleryById", {"id": self.groups[0]})
+        self.kwdict["user"] = self.request_graphql(
+            "getUserProfile", {"username": gallery["creator"]["username"]})
 
         variables = {
-            "galleryOwnerLegacyId": self.user_id,
-            "ownerLegacyId"       : self.user_id,
-            "slug"                : self.gallery_name,
-            "token"               : None,
-            "pageSize"            : 20,
+            "first"    : 20,
+            "galleryId": gallery["id"]
         }
-        gallery = self._request_graphql(
-            "GalleriesDetailQueryRendererQuery", variables,
-        )["gallery"]
 
-        self._photos = gallery["photos"]
-        del gallery["photos"]
-        return {
-            "gallery": gallery,
-            "user"   : user,
-        }
+        return self._pagination("PageGalleryItems", variables)
+
+
+class _500pxGroupExtractor(_500pxExtractor):
+    """Extractor for photo groups"""
+    subcategory = "group"
+    directory_fmt = ("{category}", "{user[username]}",
+                     "{group[title]} ({group[id]})")
+    filename_fmt = "{num:>02} {date:%Y-%m-%d} {title} ({id}).{extension}"
+    pattern = BASE_PATTERN + r"/photo-group/([^/?#]+)"
+    example = "https://500px.com/photo-group/1a2B3"
 
     def photos(self):
-        photos = self._photos
+        self.kwdict["group"] = group = self.request_graphql(
+            "getPhotoGroupById", {"id": self.groups[0]})
+        self.kwdict["user"] = group.pop("uploader")
+
         variables = {
-            "ownerLegacyId": self.user_id,
-            "slug"         : self.gallery_name,
-            "token"        : None,
-            "pageSize"     : 20,
+            "excludeNsfw": False,
+            "groupId"    : group["id"],
         }
 
-        while True:
-            yield from self._extend(photos["edges"])
-
-            if not photos["pageInfo"]["hasNextPage"]:
-                return
-
-            variables["cursor"] = photos["pageInfo"]["endCursor"]
-            photos = self._request_graphql(
-                "GalleriesDetailPaginationContainerQuery", variables,
-            )["galleryByOwnerIdAndSlugOrToken"]["photos"]
+        photos = self.request_graphql("getPhotosByGroupId", variables)
+        self.kwdict["count"] = len(photos)
+        for num, photo in enumerate(photos, 1):
+            photo["num"] = num
+        return photos
 
 
-class _500pxFavoriteExtractor(_500pxExtractor):
-    """Extractor for favorite 500px photos"""
-    subcategory = "favorite"
-    pattern = BASE_PATTERN + r"/liked/?$"
-    example = "https://500px.com/liked"
-
-    def photos(self):
-        variables = {"pageSize": 20}
-        photos = self._request_graphql(
-            "LikedPhotosQueryRendererQuery", variables,
-        )["likedPhotos"]
-
-        while True:
-            yield from self._extend(photos["edges"])
-
-            if not photos["pageInfo"]["hasNextPage"]:
-                return
-
-            variables["cursor"] = photos["pageInfo"]["endCursor"]
-            photos = self._request_graphql(
-                "LikedPhotosPaginationContainerQuery", variables,
-            )["likedPhotos"]
-
-
-class _500pxImageExtractor(_500pxExtractor):
-    """Extractor for individual images from 500px.com"""
-    subcategory = "image"
-    pattern = BASE_PATTERN + r"/photo/(\d+)"
-    example = "https://500px.com/photo/12345/TITLE"
+class _500pxPostExtractor(_500pxExtractor):
+    """Extractor for individual posts from 500px.com"""
+    subcategory = "post"
+    pattern = BASE_PATTERN + r"/(photo|video)/([^/?#]+)"
+    example = "https://500px.com/photo/1a2B3"
 
     def __init__(self, match):
+        self.subcategory = match[1]
         _500pxExtractor.__init__(self, match)
-        self.photo_id = match[1]
 
     def photos(self):
-        edges = ({"node": {"legacyId": self.photo_id}},)
-        return self._extend(edges)
+        type, id = self.groups
+        opname = "getPhotoById" if type == "photo" else "getVideoById"
+        return (self.request_graphql(opname, {"id": id}),)

@@ -9,15 +9,16 @@ from gallery_dl.extractor import mangafire
 
 __tests__ = (
 {
-    "#url"     : "https://mangafire.to/title/qzq9j-re-employment-of-the-former-strongest-hero/chapter/4276231",
+    "#url"     : "https://mangafire.to/title/qzq9j-re-employment-of-the-former-strongest-hero/chapter/9308106",
     "#class"   : mangafire.MangafireChapterExtractor,
-    "#pattern" : r"https://\w+\.mfcdn2\.xyz/mf/\w+/h/p\.jpg",
+    "#pattern" : r"https://\w+\.mfcdn\d\.xyz/mf/\w+/h/p\.jpg",
     "#count"   : 37,
 
     "chapter"       : 4,
-    "chapter_id"    : 4276231,
+    "chapter_id"    : 9308106,
     "chapter_minor" : "",
     "chapter_string": "4",
+    "chapter_type"  : "unofficial",
     "count"         : 37,
     "page"          : range(1, 37),
     "cover"         : "https://static.mfcdn.nl/c19c/i/c/f7/3ff94f3785fab893354f9d0ca440b59f.jpg",
@@ -29,6 +30,7 @@ __tests__ = (
     "manga_id"      : 59079,
     "manga_hid"     : "qzq9j",
     "manga_slug"    : "re-employment-of-the-former-strongest-hero",
+    "official"      : False,
     "year"          : 2022,
     "rating"        : {int, float},
     "status"        : "releasing",

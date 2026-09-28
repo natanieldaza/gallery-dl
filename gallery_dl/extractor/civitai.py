@@ -400,7 +400,7 @@ class CivitaiCollectionExtractor(CivitaiExtractor):
     pattern = BASE_PATTERN + r"/collections/(\d+)"
     example = "https://civitai.red/collections/12345"
 
-    def images(self):
+    def items(self):
         cid = int(self.groups[0])
         self.kwdict["collection"] = col = self.api.collection(cid)
         self.kwdict["user_collection"] = col.pop("user", None)
@@ -412,7 +412,18 @@ class CivitaiCollectionExtractor(CivitaiExtractor):
             "browsingLevel" : self.api.nsfw,
             "include"       : ("cosmetics",),
         }
-        return self.api.images(params, defaults=False)
+
+        ctype = (col.get("type") or "").lower()
+        if ctype == "image":
+            self.images = lambda: self.api.images(params, defaults=False)
+        elif ctype == "post":
+            self.posts = lambda: self.api.posts(params, defaults=False)
+        elif ctype == "model":
+            self.models = lambda: self.api.models(params, defaults=False)
+        else:
+            self.log.warning("Unsupported collection type '%s'", ctype)
+
+        return CivitaiExtractor.items(self)
 
 
 class CivitaiPostExtractor(CivitaiExtractor):
@@ -926,6 +937,8 @@ class CivitaiTrpcAPI():
             "techniques"    : int,
             "modelId"       : int,
             "modelVersionId": int,
+            "followed"      : _bool,
+            "newCreators"   : _bool,
             "remixesOnly"   : _bool,
             "nonRemixesOnly": _bool,
             "withMeta"      : _bool,

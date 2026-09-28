@@ -9,7 +9,7 @@
 """Extractors for https://filester.me/"""
 
 from .common import Extractor, Message
-from .. import text
+from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?filester\.(?:me|s[hi]|gg)"
 
@@ -78,6 +78,14 @@ class FilesterFolderExtractor(FilesterExtractor):
             page = self.request(url, params=params).text
 
             if num is None:
+                if page.find("<title>Password Required</title>", 0, 100) >= 0:
+                    if password := self.config("password"):
+                        self._submit_password(page, password)
+                        continue
+                    else:
+                        msg = text.unescape(text.extr(page, "<p>", "<"))
+                        raise self.exc.AuthRequired("password", "folder", msg)
+
                 extr = text.extract_from(page)
                 kw = self.kwdict
                 kw["folder_id"] = folder_slug
@@ -108,3 +116,20 @@ class FilesterFolderExtractor(FilesterExtractor):
             if ">→</a>" not in page:
                 break
             params["page"] += 1
+
+    def _submit_password(self, page, password):
+        extr = text.extract_from(page)
+        path = text.unescape(extr('action="', '"'))
+        nonce = text.unescape(extr('="nonce" value="', '"'))
+        payload = f"{password}|{int(util.time.time()*1000)}|{nonce}"
+
+        body = {
+            "nonce"   : nonce,
+            "password": util.b64rencode(payload.encode()),
+        }
+
+        response = self.request(
+            self.root + path, method="POST", data=body, allow_redirects=False)
+        if response.status_code != 303:
+            msg = text.extr(response.text, 'class="error">', '<')
+            raise self.exc.AuthorizationError(f"'{text.unescape(msg)}'")

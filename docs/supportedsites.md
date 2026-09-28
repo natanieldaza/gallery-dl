@@ -53,9 +53,9 @@ Consider all listed sites to potentially be NSFW.
 <tr id="500px" title="500px">
     <td>500px</td>
     <td>https://500px.com/</td>
-    <td><span title="https://500px.com/liked">Favorites</span> |
-        <span title="https://500px.com/USER/galleries/GALLERY">Galleries</span> |
-        <span title="https://500px.com/photo/12345/TITLE">individual Images</span> |
+    <td><span title="https://500px.com/gallery/ID">Galleries</span> |
+        <span title="https://500px.com/photo-group/1a2B3">Groups</span> |
+        <span title="https://500px.com/photo/1a2B3">Photos | Videos</span> |
         <span title="https://500px.com/USER">User Profiles</span></td>
     <td></td>
 </tr>
@@ -332,10 +332,10 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://civitai.red/tag/TAG">Tag Searches</span> |
         <span title="https://civitai.red/user/USER">User Profiles</span> |
         <span title="https://civitai.red/user/USER/collections">User Collections</span> |
-        <span title="https://civitai.red/user/USER/images">User Images, Image Reactions</span> |
+        <span title="https://civitai.red/user/USER/images">User Images | Image Reactions</span> |
         <span title="https://civitai.red/user/USER/models">User Models</span> |
         <span title="https://civitai.red/user/USER/posts">User Posts</span> |
-        <span title="https://civitai.red/user/USER/videos">User Videos, Video Reactions</span> |
+        <span title="https://civitai.red/user/USER/videos">User Videos | Video Reactions</span> |
         <span title="https://civitai.red/videos">Video Listings</span></td>
     <td></td>
 </tr>
@@ -375,6 +375,13 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://kemono.cr/SERVICE/user/12345">User Profiles</span></td>
     <td>Supported</td>
 </tr>
+<tr id="coomerfans" title="coomerfans">
+    <td>Coomer Fans</td>
+    <td>https://coomerfans.com/</td>
+    <td><span title="https://coomerfans.com/u/onlyfans/12345/USERNAME">Creators</span> |
+        <span title="https://coomerfans.com/p/12345/67890/SERVICE">Posts</span></td>
+    <td></td>
+</tr>
 <tr id="cosmos" title="cosmos">
     <td>Cosmos</td>
     <td>https://www.cosmos.so/</td>
@@ -388,7 +395,7 @@ Consider all listed sites to potentially be NSFW.
 <tr id="cosplayrule34" title="cosplayrule34">
     <td>Cosplayrule34</td>
     <td>https://cosplayrule34.com/</td>
-    <td><span title="https://cosplayrule34.com/model/MODEL">Models, Cosplays, Fandoms, Categories, Searches</span> |
+    <td><span title="https://cosplayrule34.com/model/MODEL">Models | Cosplays | Fandoms | Categories | Searches</span> |
         <span title="https://cosplayrule34.com/post/12345">Posts</span> |
         <span title="https://cosplayrule34.com/">Frontpage Posts</span> |
         <span title="https://cosplayrule34.com/top">Top Pages</span></td>
@@ -568,7 +575,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Fapello</td>
     <td>https://fapello.com/</td>
     <td><span title="https://fapello.com/model/">Models</span> |
-        <span title="https://fapello.com/trending/">Videos, Trending Posts, Popular Videos, Top Models</span> |
+        <span title="https://fapello.com/trending/">Videos | Trending Posts | Popular Videos | Top Models</span> |
         <span title="https://fapello.com/MODEL/12345/">Posts</span></td>
     <td></td>
 </tr>
@@ -1740,6 +1747,12 @@ Consider all listed sites to potentially be NSFW.
     <td><span title="https://speakerdeck.com/USER/PRESENTATION">Presentations</span></td>
     <td></td>
 </tr>
+<tr id="steamcommunity" title="steamcommunity">
+    <td>Steam Community</td>
+    <td>https://steamcommunity.com/</td>
+    <td><span title="https://steamcommunity.com/sharedfiles/filedetails/?id=12345">Sharedfiles</span></td>
+    <td></td>
+</tr>
 <tr id="steamgriddb" title="steamgriddb">
     <td>SteamGridDB</td>
     <td>https://www.steamgriddb.com</td>
@@ -1974,7 +1987,7 @@ Consider all listed sites to potentially be NSFW.
 <tr id="wallpapercave" title="wallpapercave">
     <td>Wallpaper Cave</td>
     <td>https://wallpapercave.com/</td>
-    <td><span title="https://wallpapercave.com/w/wp12345">individual Images, Search Results</span></td>
+    <td><span title="https://wallpapercave.com/w/wp12345">individual Images | Search Results</span></td>
     <td></td>
 </tr>
 <tr id="warosu" title="warosu">
@@ -2061,7 +2074,8 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://www.xasiat.com/albums/categories/CATEGORY/">Categories</span> |
         <span title="https://www.xasiat.com/albums/models/MODEL/">Models</span> |
         <span title="https://www.xasiat.com/search/QUERY/">Search Results</span> |
-        <span title="https://www.xasiat.com/albums/tags/TAG/">Tag Searches</span></td>
+        <span title="https://www.xasiat.com/albums/tags/TAG/">Tag Searches</span> |
+        <span title="https://www.xasiat.com/videos/12345/TITLE/">Videos</span></td>
     <td></td>
 </tr>
 <tr id="xfolio" title="xfolio">
@@ -2869,77 +2883,77 @@ Consider all listed sites to potentially be NSFW.
 <tr id="wikimedia" title="wikimedia">
     <td>Wikimedia</td>
     <td>https://www.wikimedia.org/</td>
-    <td><span title="https://www.wikimedia.org/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.wikimedia.org/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.wikimedia.org/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="wikispecies" title="wikispecies">
     <td>Wikispecies</td>
     <td>https://species.wikimedia.org/</td>
-    <td><span title="https://species.wikimedia.org/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://species.wikimedia.org/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://species.wikimedia.org/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="wikimediacommons" title="wikimediacommons">
     <td>Wikimedia Commons</td>
     <td>https://commons.wikimedia.org/</td>
-    <td><span title="https://commons.wikimedia.org/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://commons.wikimedia.org/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://commons.wikimedia.org/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="mediawiki" title="mediawiki">
     <td>MediaWiki</td>
     <td>https://www.mediawiki.org/</td>
-    <td><span title="https://www.mediawiki.org/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.mediawiki.org/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.mediawiki.org/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="fandom" title="fandom">
     <td>Fandom</td>
     <td>https://www.fandom.com/</td>
-    <td><span title="https://www.fandom.com/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.fandom.com/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.fandom.com/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="wikigg" title="wikigg">
     <td>wiki.gg</td>
     <td>https://www.wiki.gg/</td>
-    <td><span title="https://www.wiki.gg/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.wiki.gg/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.wiki.gg/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="mariowiki" title="mariowiki">
     <td>Super Mario Wiki</td>
     <td>https://www.mariowiki.com/</td>
-    <td><span title="https://www.mariowiki.com/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.mariowiki.com/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.mariowiki.com/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="bulbapedia" title="bulbapedia">
     <td>Bulbapedia</td>
     <td>https://bulbapedia.bulbagarden.net/</td>
-    <td><span title="https://bulbapedia.bulbagarden.net/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://bulbapedia.bulbagarden.net/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://bulbapedia.bulbagarden.net/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="pidgiwiki" title="pidgiwiki">
     <td>PidgiWiki</td>
     <td>https://www.pidgi.net/</td>
-    <td><span title="https://www.pidgi.net/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://www.pidgi.net/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://www.pidgi.net/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="azurlanewiki" title="azurlanewiki">
     <td>Azur Lane Wiki</td>
     <td>https://azurlane.koumakan.jp/</td>
-    <td><span title="https://azurlane.koumakan.jp/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://azurlane.koumakan.jp/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://azurlane.koumakan.jp/">Wikis</span></td>
     <td></td>
 </tr>
 <tr id="mgewiki" title="mgewiki">
     <td>Monster Girl Encyclopedia Wiki</td>
     <td>https://mgewiki.moe/</td>
-    <td><span title="https://mgewiki.moe/wiki/TITLE">Articles, Categories, Files</span> |
+    <td><span title="https://mgewiki.moe/wiki/TITLE">Articles | Categories | Files</span> |
         <span title="https://mgewiki.moe/">Wikis</span></td>
     <td></td>
 </tr>

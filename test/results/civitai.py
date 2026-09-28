@@ -685,8 +685,9 @@ __tests__ = (
 
 {
     "#url"     : "https://civitai.com/collections/11453135",
+    "#comment" : "'Images' collection",
     "#class"   : civitai.CivitaiCollectionExtractor,
-    "#count"   : 12,
+    "#count"   : 11,
 
     "collection"     : {
         "availability": "Public",
@@ -697,12 +698,82 @@ __tests__ = (
         "mode"        : None,
         "name"        : "Sakura Trees",
         "nsfw"        : False,
-        "nsfwLevel"   : 3,
+        "nsfwLevel"   : 1,
         "read"        : "Public",
         "tags"        : [],
         "type"        : "Image",
         "userId"      : 8511981,
         "write"       : "Private",
+    },
+},
+
+{
+    "#url"     : "https://civitai.red/collections/960208",
+    "#comment" : "'Posts' collection",
+    "#class"   : civitai.CivitaiCollectionExtractor,
+    "#results" : (
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/2e492e9c-b2cf-43cd-b8e6-a2d28196dc1e/original=true/2951ACDB4025FFDDF671AA760A61722485D380CF6BA5E29B342516B6DE6E9FE3",
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/f05b6e8c-c80a-4f72-8954-f64c88d374f2/original=true/0119F69C6403FF1F242B79C4855767998A5EF3C95CAC8FBC4811664DDF8704D7",
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/e18faeee-3f1c-4b35-8cfb-070fa93eeeeb/original=true/AA980DD9B24F5CB5E7392E96D02BE118E1FE2C830302FC48B846A7AAA2B43CE8",
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a8201400-12b5-45ce-966b-9d97b6e850b9/original=true/1D56B4C084A9ACFB84CA06C42EE4F8A2773AC8E54EEBB3BC493F89877200DD1E",
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/217da57b-be19-4cd7-b893-16f3330c9767/original=true/9425D787538CEAEEE13C3B0D6185FDE3738DEF273966E2107C38B4BDC9733D3C",
+        "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/669cdf08-d170-4427-9911-c0314e8d38ec/original=true/6D4B5A8B5A3D448CF68CC677CB233135F2D40EC427873164E9A4E8276B8A7CA4",
+    ),
+
+    "collection"     : {
+        "availability": "Public",
+        "description" : "Japan Geta",
+        "id"          : 960208,
+        "image"       : None,
+        "metadata"    : {},
+        "mode"        : None,
+        "name"        : "Japan Geta",
+        "nsfw"        : False,
+        "nsfwLevel"   : 1,
+        "read"        : "Public",
+        "tags"        : [],
+        "type"        : "Post",
+        "userId"      : 3775509,
+        "write"       : "Private",
+    },
+    "post"           : dict,
+    "user"           : {
+        "id"            : 3775509,
+        "username"      : "bowesfrank830",
+    },
+    "user_collection": {
+        "id"            : 3775509,
+        "username"      : "bowesfrank830",
+    },
+},
+
+{
+    "#url"     : "https://civitai.red/collections/14873",
+    "#comment" : "'Models' collection",
+    "#class"   : civitai.CivitaiCollectionExtractor,
+    "#results" : (
+        "https://civitai.red/models/108126",
+    ),
+
+    "collection"     : {
+        "availability": "Public",
+        "description" : "",
+        "id"          : 14873,
+        "image"       : None,
+        "metadata"    : {},
+        "mode"        : None,
+        "name"        : "japan",
+        "nsfw"        : False,
+        "nsfwLevel"   : 29,
+        "read"        : "Public",
+        "tags"        : [],
+        "type"        : "Model",
+        "userId"      : 2127915,
+        "write"       : "Private",
+    },
+    "user_collection": {
+        "id"            : 2127915,
+        "username"      : "Bigoni",
     },
 },
 

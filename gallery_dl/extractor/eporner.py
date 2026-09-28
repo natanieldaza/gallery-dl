@@ -38,6 +38,8 @@ class EpornerGalleryExtractor(GalleryExtractor):
                 page, 'name="description" content="', '"')),
             "tags": text.extr(
                 page, 'EP.ads.keywords = "', '"').split(","),
+            "date": self.parse_datetime_iso(text.extr(
+                page, '<time datetime="', '"')),
         }
 
     def images(self, page):

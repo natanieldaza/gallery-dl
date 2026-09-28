@@ -82,6 +82,7 @@ class PathFormat():
         self.path = ""
         self.realpath = ""
         self.temppath = ""
+        self.part = False
 
         extension_map = config("extension-map")
         if extension_map is None:
@@ -117,6 +118,7 @@ class PathFormat():
         elif strip == "windows":
             strip = ". "
         self.strip = strip
+        self.sub = sub if (sub := config("path-sub")) else None
 
         if WINDOWS:
             self.extended = config("path-extended", True)
@@ -226,6 +228,7 @@ class PathFormat():
 
     def set_filename(self, kwdict):
         """Set general filename data"""
+        self.part = False
         self.kwdict = kwdict
         self.filename = self.temppath = self.prefix = ""
 
@@ -288,6 +291,7 @@ class PathFormat():
                               for fmt in segments]
 
             segments = []
+            sub = self.sub
             strip = self.strip
             for fmt in formatters:
                 segment = fmt(kwdict)
@@ -295,6 +299,8 @@ class PathFormat():
                     segment = segment.strip()
                     if strip and segment not in {".", ".."}:
                         segment = segment.rstrip(strip)
+                    if sub is not None and segment in sub:
+                        segment = sub[segment]
                     if segment:
                         segments.append(self.clean_segment(segment))
                 else:  # assume list
@@ -302,6 +308,8 @@ class PathFormat():
                         segment = segment.strip()
                         if strip and segment not in {".", ".."}:
                             segment = segment.rstrip(strip)
+                        if sub is not None and segment in sub:
+                            segment = sub[segment]
                         if segment:
                             segments.append(self.clean_segment(segment))
             return segments
@@ -350,6 +358,8 @@ class PathFormat():
 
     def part_enable(self, part_directory=None):
         """Enable .part file usage"""
+        if self.part:
+            return
         if self.extension:
             self.temppath += ".part"
         else:
@@ -369,6 +379,7 @@ class PathFormat():
                 part_directory,
                 os.path.basename(self.temppath),
             )
+        self.part = True
 
     def part_size(self):
         """Return size of .part file"""
@@ -385,6 +396,8 @@ class PathFormat():
 
     def finalize(self):
         """Move tempfile to its target location"""
+        self.part = False
+
         if self.delete:
             self.delete = False
             os.unlink(self.temppath)

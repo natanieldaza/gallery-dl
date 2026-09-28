@@ -17,7 +17,7 @@ GQL_HASHES = {
     "NameImages":
         "4223ddf53fc6196821daf52d9ce5bb3080cae25db60f76bb8fd4ff7bd1ff94ce",
     "TitleImages":
-        "92fc13fc090ec08a566d0f94b473e23232119635628252223dd54c1d0f6a6127",
+        "1e5d5f0f8f7a27bad078b4eb915554a92f0123750f6e39abdd16ac981ef8a84c",
 }
 
 

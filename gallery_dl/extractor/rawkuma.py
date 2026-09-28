@@ -25,7 +25,7 @@ class RawkumaChapterExtractor(RawkumaBase, ChapterExtractor):
     example = "https://rawkuma.net/manga/7TITLE/chapter-123.321"
 
     def __init__(self, match):
-        url = f"{self.root}/{match[1]}/"
+        url = f"{self.root}{match[1]}/"
         ChapterExtractor.__init__(self, match, url)
 
     def metadata(self, page):
@@ -47,8 +47,8 @@ class RawkumaChapterExtractor(RawkumaBase, ChapterExtractor):
         }
 
     def images(self, page):
-        return [(url, None) for url in text.extract_iter(
-                page, "<img src='", "'")]
+        pattern = text.re(r"""<img src=["']([^"']+)""")
+        return [(url, None) for url in pattern.findall(page)]
 
 
 class RawkumaMangaExtractor(RawkumaBase, MangaExtractor):

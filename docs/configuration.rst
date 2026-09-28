@@ -436,6 +436,22 @@ Special Values
         ``". "``
 
 
+extractor.*.path-sub
+--------------------
+Type
+    ``object`` (`name` → `replacement`)
+Example
+    .. code:: json
+
+        {
+            "."  : "[dot]",
+            ".." : "[dotdot]",
+            "foo": "bar"
+        }
+Description
+    Substitute generated path segment names with the given alternative.
+
+
 extractor.*.path-convert
 ------------------------
 Type
@@ -1490,6 +1506,16 @@ Description
 
     See `<https://www.sqlite.org/pragma.html#toc>`__
     for available ``PRAGMA`` statements and further details.
+
+
+extractor.*.archive-reuse
+-------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Reuse existing archive database connections.
 
 
 extractor.*.archive-table
@@ -3111,6 +3137,31 @@ Description
     Also extract subfolder content.
 
 
+extractor.directlink.transform
+------------------------------
+Type
+    * ``object`` (`pattern` → `replacement`)
+    * ``list`` of [`pattern`, `replacement`] pairs
+Example
+    .. code:: json
+
+        {
+            "/foo" : "/bar/baz",
+            "([?&])dl=0\\b": "\\1dl=1"
+        }
+
+    .. code:: json
+
+        [
+            ["/foo" , "/bar/baz"],
+            ["([?&])dl=0\\b": "\\1dl=1"]
+        ]
+Description
+    Transform URLs by substituting all matching `patterns`
+    with their respective `replacements`
+    using `re.sub() <https://docs.python.org/3/library/re.html#re.sub>`_.
+
+
 extractor.discord.embeds
 ------------------------
 Type
@@ -4251,11 +4302,16 @@ Type
     * ``string``
 Default
     ``"disk"``
+Example
+    ``"disk:86400"``
 Description
     Selects how to cache user profile data.
 
     ``true`` | ``"disk"``
         Cache user data on disk
+    ``"disk:EXP"``
+        Cache user data on disk.
+        Refresh cache entry after ``EXP`` seconds.
     ``false`` | ``"memory"``
         Cache user data in memory
 
@@ -5325,6 +5381,21 @@ Description
     Extract ``comments`` metadata.
 Note
     This requires 1 additional HTTP request per post.
+
+
+extractor.pawchive.deferred
+---------------------------
+Type
+    * ``bool``
+    * ``string``
+Default
+    ``true``
+Description
+    | Extract and download ``deferred`` files.
+    | (i.e. files marked with "Exceeded file size limit, available temporarily")
+
+    Set this to ``"only"`` to download only ``deferred`` files
+    from posts containing at least one ``deferred`` file.
 
 
 extractor.pawchive.domain
@@ -7573,6 +7644,17 @@ Description
     a quoted (original) Tweet when it sees the Tweet which quotes it.
 
 
+extractor.twitter.quoted-expand
+-------------------------------
+Type
+    ``bool``
+Default
+    `extractor.twitter.quoted`_
+Description
+    When encountering a quoted Tweet with empty/missing data,
+    fetch its complete body via an additional API request.
+
+
 extractor.twitter.ratelimit
 ---------------------------
 Type
@@ -8257,6 +8339,21 @@ Description
     For ``Category:`` pages, recursively descent into subcategories.
 
 
+extractor.xasiat.format
+-----------------------
+Type
+    ``string``
+Default
+    ``"best"``
+Description
+    Selects video download format.
+
+    ``"HD"`` | ``"hd"`` | ``"best"``
+        "Best Quality" format
+    ``"SD"`` | ``"sd"`` | ``"480p"``
+        "SD" format
+
+
 extractor.[xenforo].attachments
 -------------------------------
 Type
@@ -8361,7 +8458,7 @@ Description
 extractor.ytdl.deprecations
 ---------------------------
 Type
-    ´´bool´´
+    ``bool``
 Default
     ``false``
 Description
@@ -8916,7 +9013,7 @@ Description
 downloader.ytdl.deprecations
 ----------------------------
 Type
-    ´´bool´´
+    ``bool``
 Default
     ``false``
 Description
@@ -9485,6 +9582,7 @@ Description
     * `archive-format <extractor.*.archive-format_>`__
     * `archive-prefix <extractor.*.archive-prefix_>`__
     * `archive-pragma <extractor.*.archive-pragma_>`__
+    * `archive-reuse  <extractor.*.archive-reuse_>`__
     * `archive-table  <extractor.*.archive-table_>`__
 
 
@@ -10085,6 +10183,7 @@ Description
     * `archive-format <extractor.*.archive-format_>`__
     * `archive-prefix <extractor.*.archive-prefix_>`__
     * `archive-pragma <extractor.*.archive-pragma_>`__
+    * `archive-reuse  <extractor.*.archive-reuse_>`__
     * `archive-table  <extractor.*.archive-table_>`__
 
 
@@ -10186,6 +10285,7 @@ Description
     * `archive-format <extractor.*.archive-format_>`__
     * `archive-prefix <extractor.*.archive-prefix_>`__
     * `archive-pragma <extractor.*.archive-pragma_>`__
+    * `archive-reuse  <extractor.*.archive-reuse_>`__
     * `archive-table  <extractor.*.archive-table_>`__
 
 
@@ -10197,7 +10297,8 @@ Type
 Default
     ``"file"``
 Description
-    The event(s) for which `python.function`_ gets called.
+    The event(s) for which `python.function`_ is called
+    or `python.expression`_ is evaluated.
 
     See `metadata.event`_ for a list of available events.
 
@@ -10231,6 +10332,34 @@ Description
       ``<function name>`` is the name of the function in that module.
 
     It gets called with the current metadata dict as argument.
+
+
+python.args
+-----------
+Type
+    ``list`` of `Format Strings`_
+Example
+    ``["{username!c}", "\fE width*height", "\fF {site//(1024*1024)}MB"]``
+Description
+    List of additional positional arguments
+    that get passed to `python.function`_.
+
+
+python.kwargs
+-------------
+Type
+    ``object`` (`name` → `Format String`_)
+Example
+    .. code:: json
+
+        {
+            "user"  : "{username!c}",
+            "pixels": "\fE width*height",
+            "size"  : "\fF {size//(1024*1024)}MB"]`
+        }
+Description
+    Mapping of additional keyword arguments
+    that get passed to `python.function`_.
 
 
 python.mode
@@ -10802,6 +10931,44 @@ Description
     to disable creating a file for this cache.
 
 
+environment
+-----------
+Type
+    * ``object`` (`name` → `value`)
+    * ``list`` of [`name`, `value`] pairs
+Example
+    .. code:: json
+
+        {
+            "_config" : "~/.config/gallery-dl",
+            "_cookies": "$_config/cookies"
+        }
+
+    .. code:: json
+
+        [
+            ["_config" , "~/.config/gallery-dl"],
+            ["_cookies", "$_config/cookies"]
+        ]
+Description
+    Additional environment variable values
+    that get set during program initialization.
+Note
+    These can then be used as replacements in |Path|_ values.
+
+
+environment-expand
+------------------
+Type
+    ``bool``
+Default
+    ``true``
+Description
+    Expand environment variables and tildes `~` in |environment|_ values.
+
+.. |environment| replace:: ``environment``
+
+
 filters-environment
 -------------------
 Type
@@ -10861,6 +11028,24 @@ Example
     ``["~/urls.txt", "$HOME/input"]``
 Description
     Additional input files.
+
+
+follow-symlinks
+---------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    When updating the contents of
+
+    * ``--cookies``
+    * ``--input-file-comment``
+    * ``--input-file-delete``
+
+    files, follow symlinks and update their targets.
+
+    Otherwise, symlinks are replaced with regular files.
 
 
 signals-ignore

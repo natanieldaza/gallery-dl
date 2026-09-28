@@ -175,7 +175,16 @@ def sha1(s):
 
 def generate_token(size=16):
     """Generate a random token with hexadecimal digits"""
-    return random.getrandbits(size * 8).to_bytes(size, "big").hex()
+    return os.urandom(size).hex()
+
+
+def generate_uuid():
+    """Generate a UUIDv4 in hex representation"""
+    v = bytearray(os.urandom(16))
+    v[6] = (v[6] & 0x0F) | 0x40
+    v[8] = (v[8] & 0x3F) | 0x80
+    v = v.hex()
+    return f'{v[0:8]}-{v[8:12]}-{v[12:16]}-{v[16:20]}-{v[20:32]}'
 
 
 def format_bytes_decimal(value):
@@ -753,6 +762,7 @@ NONE = CustomNone()
 FLAGS = Flags()
 WINDOWS = (os.name == "nt")
 SENTINEL = object()
+SYMLINKS = False
 SUFFIXES = "KMGTPEZY"
 EXECUTABLE = getattr(sys, "frozen", False)
 SPECIAL_EXTRACTORS = {"oauth", "recursive", "generic"}

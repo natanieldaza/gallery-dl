@@ -27,6 +27,7 @@ query GetProfileProjects($username: String, $after: String) {
           spam_lock
           eu_ip_lock
         }
+        canBeBoosted
         colors {
           r
           g
@@ -61,19 +62,18 @@ query GetProfileProjects($username: String, $after: String) {
         }
         hasMatureContent
         id
+        oid
+        isBoosted
         isFeatured
         isHiddenFromWorkTab
         isMatureReviewSubmitted
+        isMonaReported
         isOwner
         isFounder
         isPinnedToSubscriptionOverview
         isPrivate
-        linkedAssets {
-          ...sourceLinkFields
-        }
-        linkedAssetsCount
         sourceFiles {
-          ...sourceFileFields
+          ...sourceFileWithCoverFields
         }
         matureAccess
         modifiedOn
@@ -88,6 +88,8 @@ query GetProfileProjects($username: String, $after: String) {
         }
         premium
         publishedOn
+        privacyLevel
+        profileSectionId
         stats {
           appreciations {
             all
@@ -116,11 +118,15 @@ query GetProfileProjects($username: String, $after: String) {
   }
 }
 
-fragment sourceFileFields on SourceFile {
+
+fragment sourceFileWithCoverFields on SourceFile {
   __typename
   sourceFileId
   projectId
   userId
+  creator {
+    username
+  }
   title
   assetId
   renditionUrl
@@ -134,16 +140,17 @@ fragment sourceFileFields on SourceFile {
   hidden
   extension
   hasUserPurchased
+  description
+  cover {
+    coverUrl
+    coverX
+    coverY
+    coverScale
+    width
+    height
+  }
 }
 
-fragment sourceLinkFields on LinkedAsset {
-  __typename
-  name
-  premium
-  url
-  category
-  licenseType
-}
 
 fragment OwnerFields on User {
   displayName
@@ -155,10 +162,22 @@ fragment OwnerFields on User {
   locationUrl
   url
   username
+  isMessageButtonVisible
   availabilityInfo {
     availabilityTimeline
     isAvailableFullTime
     isAvailableFreelance
+    hiringTimeline {
+      key
+      label
+    }
+  }
+  creatorPro {
+    isActive
+    initialSubscriptionDate
+  }
+  recruiterPro {
+    isActive
   }
 }
 """

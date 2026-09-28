@@ -28,7 +28,7 @@ class TurboAlbumExtractor(LolisafeAlbumExtractor):
         extr = text.extract_from(self.request(url).text)
         title = extr("<h1 ", "<")
         descr = extr("<p ", "<")
-        tbody = extr('id="fileTbody"', '</tbody>')
+        tbody = extr('const FILES = [', '\n  ];')
         headers = {"Referer": url}
 
         return self._extract_files(tbody, headers), {
@@ -36,21 +36,21 @@ class TurboAlbumExtractor(LolisafeAlbumExtractor):
             "album_name"   : text.unescape(title[title.find(">")+1:]),
             "description"  : text.unescape(descr[descr.find(">")+1:]),
             "album_size"   : sum(map(text.parse_int, text.extract_iter(
-                tbody, 'data-size="', '"'))),
-            "count"        : tbody.count("data-id="),
+                tbody, ', size:', ','))),
+            "count"        : tbody.count(', size:'),
             "_http_headers": headers,
         }
 
     def _extract_files(self, body, headers):
-        for file in text.extract_iter(body, "<tr", "</tr>"):
-            data_id = text.extr(file, 'data-id="', '"')
+        for file in text.extract_iter(body, " {", "},\n"):
+            data_id = text.extr(file, 'id:"', '"')
             url = f"{self.root}/api/sign?v={data_id}"
             data = self.request_json(url, headers=headers)
             name = data.get("original_filename") or data.get("filename")
             yield text.nameext_from_name(name, {
                 "id"  : data_id,
                 "file": data.get("url"),
-                "size": text.parse_int(text.extr(file, 'data-size="', '"')),
+                "size": text.parse_int(text.extr(file, ', size:', ',')),
                 "_http_headers": headers,
             })
 
@@ -80,7 +80,7 @@ class TurboMediaExtractor(TurboAlbumExtractor):
         headers = {"Referer": url}
         page = self.request(url).text
         size = text.extr(page, 'id="fileSizeBytes">', '<')
-        date = text.extract(page, "<span>", "<", page.find("File ID:"))[0]
+        date = text.extract(page, "<span>", "<", page.find(">ID:"))[0]
 
         url = f"{self.root}/api/sign?v={data_id}"
         data = self.request_json(url, headers=headers)

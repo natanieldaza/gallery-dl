@@ -1067,12 +1067,22 @@ value = 123
             token = util.generate_token()
             tokens.add(token)
             self.assertEqual(len(token), 16 * 2)
-            self.assertRegex(token, r"^[0-9a-f]+$")
+            self.assertRegex(token, r"^[0-9a-f]{32}$")
         self.assertGreaterEqual(len(tokens), 99)
 
         token = util.generate_token(80)
         self.assertEqual(len(token), 80 * 2)
-        self.assertRegex(token, r"^[0-9a-f]+$")
+        self.assertRegex(token, r"^[0-9a-f]{160}$")
+
+    def test_generate_uuid(self):
+        pat = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        uuids = set()
+        for _ in range(100):
+            uuid = util.generate_uuid()
+            uuids.add(uuid)
+            self.assertEqual(len(uuid), 36)
+            self.assertRegex(uuid, pat)
+        self.assertGreaterEqual(len(uuids), 99)
 
     def test_format_bytes_decimal(self):
         f = util.format_bytes_decimal

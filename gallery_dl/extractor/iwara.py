@@ -471,7 +471,16 @@ class IwaraAPI():
 
         url = self.root + endpoint
         self.authenticate()
-        return self.extractor.request_json(url, params=params, headers=headers)
+        data = self.extractor.request_json(url, params=params, headers=headers)
+
+        if "message" in data and data["message"] == "errors.differentSite":
+            self.extractor.log.debug(data)
+            headers["X-Site"] = self.extractor.root[8:-2] + data["siteId"][-2:]
+            self.authenticate()
+            data = self.extractor.request_json(
+                url, params=params, headers=headers)
+
+        return data
 
     def _pagination(self, endpoint, params=None):
         if params is None:

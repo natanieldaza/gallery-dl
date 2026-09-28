@@ -43,6 +43,7 @@ class PostProcessor():
                     archive_format,
                     archive_table,
                     "file",
+                    options.get("archive-reuse"),
                     options.get("archive-pragma"),
                     job.pathfmt,
                     "_archive_" + self.name,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2025 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -193,11 +193,13 @@ class TestConfig(unittest.TestCase):
 
             config.clear()
             config.load((path1,))
+            self.assertEqual(config.getg("a"), 1)
             self.assertEqual(config.get(()    , "a"), 1)
             self.assertEqual(config.get(("b",), "a"), 2)
             self.assertEqual(config.get(("b",), "c"), "text")
 
             config.load((path2,))
+            self.assertEqual(config.getg("a"), 7)
             self.assertEqual(config.get(()    , "a"), 7)
             self.assertEqual(config.get(("b",), "a"), 8)
             self.assertEqual(config.get(("b",), "c"), "text")
@@ -205,6 +207,7 @@ class TestConfig(unittest.TestCase):
 
             config.clear()
             config.load((path1, path2))
+            self.assertEqual(config.getg("a"), 7)
             self.assertEqual(config.get(()    , "a"), 7)
             self.assertEqual(config.get(("b",), "a"), 8)
             self.assertEqual(config.get(("b",), "c"), "text")

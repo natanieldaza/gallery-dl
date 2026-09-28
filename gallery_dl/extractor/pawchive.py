@@ -44,6 +44,12 @@ class PawchiveExtractor(Extractor):
         order = self.config("order-revisions")
         self.revisions_reverse = order[0] in {"r", "a"} if order else False
 
+        if deferred := self.config("deferred", True):
+            self.deferred = True
+            self.deferred_only = (deferred == "only")
+        else:
+            self.deferred = self.deferred_only = False
+
         self.api = PawchiveAPI(self)
         self._find_inline = text.re(
             r'src="(?:https?://(?:pawchive\.(?:pw|st)))?(/inline/[^"]+'
@@ -73,8 +79,12 @@ class PawchiveExtractor(Extractor):
         else:
             duplicates = ()
 
-        # prevent files from being sent with gzip compression
-        headers = {"Accept-Encoding": "identity"}
+        headers = {
+            # prevent files from being sent with gzip compression
+            "Accept-Encoding": "identity",
+            # prevent '403 Forbidden' errors
+            "User-Agent"     : util.USERAGENT_GALLERYDL
+        }
 
         posts = self.posts()
         if max_posts := self.config("max-posts"):
@@ -91,7 +101,10 @@ class PawchiveExtractor(Extractor):
             service = post["service"]
             creator_id = post["user"]
 
-            if not post.get("has_full", True):
+            if post.get("has_full", True):
+                warning = True
+            else:
+                warning = False
                 self.log.warning("%s: Incomplete/Missing file import ('%s')",
                                  post["id"], post.get("preview_state"))
 
@@ -126,7 +139,6 @@ class PawchiveExtractor(Extractor):
 
             files = []
             hashes = set()
-            warning = True
             post_archives = post["archives"] = archives_type()
 
             for file in itertools.chain.from_iterable(
@@ -134,7 +146,10 @@ class PawchiveExtractor(Extractor):
                 try:
                     path = file["path"]
                 except KeyError:
-                    if warning:
+                    if file.get("deferred"):
+                        self.log.info("%s: Skipping %s ('deferred')",
+                                      post["id"], file.get("name"))
+                    elif warning:
                         warning = False
                         self.log.debug(file)
                         self.log.warning("%s: Incomplete import", post["id"])
@@ -193,22 +208,33 @@ class PawchiveExtractor(Extractor):
             post["count"] = len(files)
             yield Message.Directory, "", post
             if original:
-                for post["num"], file in enumerate(files, 1):
-                    if not file.get("preview_only"):
-                        url = file["url"]
+                if post.get("deferred") and self.deferred_only:
+                    num = 0
+                    for file in files:
+                        if not file.get("deferred"):
+                            continue
+                        num += 1
+                        file["num"] = num
                         file["original"] = True
-                        if previews:
-                            file["_fallback"] = (root_thmb + file["path"],)
-                    elif previews:
-                        url = root_thmb + file["path"]
-                        file["extension"] = "webp"
-                        file["original"] = False
-                    else:
-                        self.log.info("%s: Skipping %s ('preview only')",
-                                      post["id"], file["path"][7:])
-                        continue
-                    post.update(file)
-                    yield Message.Url, url, post
+                        post.update(file)
+                        yield Message.Url, file["url"], post
+                else:
+                    for post["num"], file in enumerate(files, 1):
+                        if not file.get("preview_only"):
+                            url = file["url"]
+                            file["original"] = True
+                            if previews and file["extension"] in exts_thmb:
+                                file["_fallback"] = (root_thmb + file["path"],)
+                        elif previews:
+                            url = root_thmb + file["path"]
+                            file["extension"] = "webp"
+                            file["original"] = False
+                        else:
+                            self.log.info("%s: Skipping %s ('preview only')",
+                                          post["id"], file["path"][7:])
+                            continue
+                        post.update(file)
+                        yield Message.Url, url, post
             else:
                 for post["num"], file in enumerate(files, 1):
                     if file["extension"] in exts_thmb:
@@ -228,8 +254,24 @@ class PawchiveExtractor(Extractor):
         return (file,)
 
     def _extract_attachments(self, post):
-        for attachment in post["attachments"]:
-            attachment["type"] = "attachment"
+        for att in post["attachments"]:
+            att["type"] = "attachment"
+            if "deferred" in att and att["deferred"]:
+                if not self.deferred:
+                    if att.get("temp_url"):
+                        post["deferred"] = True
+                elif url := att.get("temp_url"):
+                    post["deferred"] = True
+                    if text.ext_from_url(url) == "m3u8":
+                        att["path"] = "ytdl:" + url
+                        att["_ytdl_manifest"] = "hls"
+                        att["_ytdl_manifest_headers"] = post["_http_headers"]
+                    else:
+                        att["path"] = url
+                else:
+                    att["deferred"] = False
+                    self.log.debug("%s: Missing 'deferred' file link (%s)",
+                                   post["id"], att["name"])
         return post["attachments"]
 
     def _extract_inline(self, post):

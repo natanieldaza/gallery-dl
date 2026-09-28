@@ -756,6 +756,7 @@ class DownloadJob(Job):
                     archive_format,
                     archive_table,
                     cfg("archive-mode"),
+                    cfg("archive-reuse"),
                     cfg("archive-pragma"),
                     pathfmt,
                 )
@@ -810,7 +811,7 @@ class DownloadJob(Job):
             self.hooks = collections.defaultdict(list)
 
             pp_log = self.get_logger("postprocessor")
-            pp_conf = config.get((), "postprocessor") or {}
+            pp_conf = config.getg("postprocessor") or {}
             pp_opts = cfg("postprocessor-options")
             pp_list = []
 
