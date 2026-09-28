@@ -646,6 +646,27 @@ class TiktokExtractor(Extractor):
                 url, status, detail.get("statusMsg") or "")
         return False
 
+    def _announce_post_total(self, url, urls):
+        """Log how many posts this run is about to fetch.
+
+        The number exists at this point and nowhere else: `perform_request`
+        collects every page into one dict before returning, and `generate_urls`
+        has just filtered that by the video/photo/audio settings and any
+        `range`, so `len(urls)` is exactly what `items()` will walk.
+
+        It was never printed, which left anything reading the output able to
+        count FILES -- one line per download -- but never able to say how far
+        through a profile it was. The two are not convertible: a photo post is
+        one post and several files, plus an audio track, and the carousel's
+        length is only known once that post is fetched.
+
+        Posts, not files, and THIS RUN, not the account: a `range`, a per-run
+        budget or a cursor-resumed run all legitimately report fewer than the
+        profile holds.
+        """
+        self.log.info("%s: %s posts to fetch", url, len(urls))
+        return urls
+
     def _extract_video_count_from_user_detail(self, detail):
         user_info = detail.get("userInfo")
         if not user_info:
@@ -864,8 +885,8 @@ class TiktokPostsExtractor(TiktokExtractor):
         request = TiktokPostItemListRequest(range_predicate)
         if not request.execute(self, profile_url, query_parameters):
             return []
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
     def _extract_posts_api_legacy(self, profile_url, sec_uid, range_predicate):
         query_parameters = {
@@ -875,8 +896,8 @@ class TiktokPostsExtractor(TiktokExtractor):
         }
         request = TiktokCreatorItemListRequest(range_predicate)
         request.execute(self, profile_url, query_parameters)
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
 
 class TiktokRepostsExtractor(TiktokExtractor):
@@ -896,8 +917,8 @@ class TiktokRepostsExtractor(TiktokExtractor):
         }
         request = TiktokRepostItemListRequest(self.range_predicate)
         request.execute(self, profile_url, query_parameters)
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
 
 class TiktokStoriesExtractor(TiktokExtractor):
@@ -916,8 +937,8 @@ class TiktokStoriesExtractor(TiktokExtractor):
         }
         request = TiktokStoryItemListRequest()
         request.execute(self, profile_url, query_parameters)
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
 
 class TiktokLikesExtractor(TiktokExtractor):
@@ -937,8 +958,8 @@ class TiktokLikesExtractor(TiktokExtractor):
         }
         request = TiktokFavoriteItemListRequest(self.range_predicate)
         request.execute(self, profile_url, query_parameters)
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
 
 class TiktokSavedExtractor(TiktokExtractor):
@@ -958,8 +979,8 @@ class TiktokSavedExtractor(TiktokExtractor):
         }
         request = TiktokSavedPostItemListRequest(self.range_predicate)
         request.execute(self, profile_url, query_parameters)
-        return request.generate_urls(profile_url, self.video, self.photo,
-                                     self.audio)
+        return self._announce_post_total(profile_url, request.generate_urls(
+            profile_url, self.video, self.photo, self.audio))
 
 
 class TiktokFollowingExtractor(TiktokExtractor):
