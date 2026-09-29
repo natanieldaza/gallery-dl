@@ -1453,7 +1453,19 @@ class InstagramAPI():
     def _user_by_id_impl(self, user_id):
         endpoint = f"/v1/users/{user_id}/info/"
         try:
-            return self._call(endpoint, notfound="user")["user"]
+            # immich patch: ONE attempt, not the usual five.
+            #
+            # Instagram decommissioned this endpoint in late September 2026 —
+            # it answers 429 with an empty body, no Retry-After and a
+            # text/html content type, for any account, on a fresh session,
+            # after hours of idling (its sibling /v1/media/<id>/info/ still
+            # answers 400 + JSON to a bogus id, so the handler is simply gone
+            # rather than throttled). Retrying that costs five minutes of a
+            # download lane to learn nothing.
+            #
+            # Every caller now reaches this only after the GraphQL profile
+            # query has already failed, so a fast "no" is the useful answer.
+            return self._call(endpoint, notfound="user", retries=0)["user"]
         except self.extractor.exc.ControlException:
             raise
         except Exception:
@@ -1546,7 +1558,36 @@ class InstagramAPI():
 
     def user(self, screen_name, check_private=True):
         if screen_name.startswith("id:"):
-            self.extractor._user = user = self.user_by_id(screen_name[3:])
+            uid = screen_name[3:]
+            # immich patch: GraphQL first here too. This branch used to go
+            # STRAIGHT to /v1/users/<id>/info/, the endpoint Instagram
+            # decommissioned in late September 2026 (see _PROFILE_DOC_ID), so
+            # every `instagram.com/id:<uid>/` url spent five retries a minute
+            # apart on a 429 with an empty body and then died with a bogus
+            # "Requested user could not be found" — for accounts that are
+            # perfectly alive.
+            #
+            # PolarisProfilePageContentQuery is keyed by the numeric id: the
+            # username it is normally called with is only the page the lsd /
+            # fb_dtsg / doc_id are scraped from, and the site root serves those
+            # just as well. So a uid on its own is enough, which is exactly
+            # what this branch has.
+            user = None
+            for source, fetch in (
+                (_PROFILE_OPNAME, lambda: self.user_by_graphql("", uid)),
+                (f"id:{uid}", lambda: self.user_by_id(uid)),
+            ):
+                try:
+                    user = fetch()
+                except Exception as exc:
+                    self.extractor.log.debug(
+                        "Could not resolve id:%s via %s: %s: %s",
+                        uid, source, exc.__class__.__name__, exc)
+                else:
+                    break
+            if user is None:
+                raise self.exc.NotFoundError("user")
+            self.extractor._user = user
             return user
 
         user = self.user_by_screen_name(screen_name)
@@ -1837,8 +1878,15 @@ class InstagramAPI():
 
     def user_by_graphql(self, username, user_id):
         """The profile /v1/users/<id>/info/ used to return, via the web query."""
+        # `_key=1` — cache under the USER ID, args[1], not the default args[0].
+        # The username is only the page the tokens are scraped from, and the
+        # `id:<uid>` branch of user() passes "" for it, so keying on args[0]
+        # would file every numeric-id lookup under one shared empty key and
+        # hand the second account the first account's profile. The uid is the
+        # identity anyway, so this also stops the same profile being cached
+        # twice when it is reached once by handle and once by id.
         return self.extractor.cache(
-            self._user_by_graphql_impl, username, user_id,
+            self._user_by_graphql_impl, username, user_id, _key=1,
             _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_graphql_impl(self, username, user_id):
@@ -1846,9 +1894,13 @@ class InstagramAPI():
         variables.update(_PROFILE_PROVIDERS)
         # A PATH, not a username: upstream's _webpage does f"{root}{path}/",
         # so the leading slash is load-bearing (without it the host becomes
-        # "www.instagram.comchanelb4byyy2.0_" and DNS fails).
+        # "www.instagram.comchanelb4byyy2.0_" and DNS fails). And an EMPTY
+        # username must stay empty rather than becoming "/", which would ask
+        # for "https://www.instagram.com//" — a page that carries no __eqmc
+        # block and so no tokens. "" gives the site root, which does.
+        path = "/" + username if username else ""
         data = self._call_graphql(
-            "/" + username, _PROFILE_OPNAME, _PROFILE_FIELD, _PROFILE_DOC_ID,
+            path, _PROFILE_OPNAME, _PROFILE_FIELD, _PROFILE_DOC_ID,
             variables).get("data") or {}
         # The query ALIASES its root field to "user"; the raw field name is the
         # fallback in case a future revision drops the alias.
