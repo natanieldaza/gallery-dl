@@ -1130,10 +1130,29 @@ class InstagramAvatarExtractor(InstagramExtractor):
 
     def posts(self):
         if self._logged_in:
-            user_id = self.api.user(self.item, check_private=False)["id"]
-            user = self.api.user_by_id(user_id)
+            # immich patch: take the avatar from the user block `user()` has
+            # ALREADY built. It used to resolve the handle, throw the result
+            # away and spend a second request on /v1/users/<id>/info/ for the
+            # same profile — an endpoint Instagram has refused since late
+            # September 2026 (see _PROFILE_DOC_ID), which is what broke this
+            # extractor. PolarisProfilePageContentQuery carries
+            # `hd_profile_pic_url_info` and `profile_pic_url`, so the first
+            # lookup is now sufficient and the second is pure cost.
+            user = self.api.user(self.item, check_private=False)
+            if "hd_profile_pic_url_info" not in user and \
+                    "hd_profile_pic_versions" not in user:
+                # A thin block — topsearch answered and the upgrade failed.
+                # Worth one attempt at the old endpoint before giving up.
+                user = self.api.user_by_id(user["id"])
             avatar = (user.get("hd_profile_pic_url_info") or
-                      user["hd_profile_pic_versions"][-1])
+                      (user.get("hd_profile_pic_versions") or [None])[-1] or
+                      {"url": user["profile_pic_url"]})
+            # The GraphQL profile gives {"url": ...} and nothing else, where
+            # the REST one carried width/height. Default them rather than
+            # KeyError, exactly as the logged-out branch below already does.
+            avatar = {"url"   : avatar["url"],
+                      "width" : avatar.get("width", 0),
+                      "height": avatar.get("height", 0)}
         else:
             user = self.item
             if user.startswith("id:"):
@@ -1148,7 +1167,7 @@ class InstagramAvatarExtractor(InstagramExtractor):
             pk = pk.partition("_")[0]
             code = shortcode_from_id(pk)
         else:
-            pk = code = "avatar:" + str(user["pk"])
+            pk = code = "avatar:" + str(user.get("pk") or user["id"])
 
         return ({
             "pk"        : pk,
@@ -2018,7 +2037,7 @@ _POST_DOC_ID_RE = text.re(
 # PolarisPostActionLoadPostQuery) had rotated and returned
 # {"errors":[{"message":"execution error"}]} — HTTP 200, ~90 bytes — which is
 # what silently broke single-post downloads once REST started answering 302.
-_POST_DOC_ID = "27852811784380813"
+_POST_DOC_ID = "27830990013244856"
 
 # Signature of the REST media/info gate: the endpoint 302s single-post requests
 # to the logged-out home page even with valid cookies (see Extractor.request,
