@@ -67,7 +67,7 @@ class KabeuchiUserExtractor(Extractor):
             info = self.request_json(url, method="POST", data=data)
             datas = info["datas"]
 
-            if not datas or not isinstance(datas, list):
+            if not datas or datas.__class__ is not list:
                 return
             yield from datas
 

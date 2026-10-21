@@ -148,7 +148,7 @@ class Formatter(logging.Formatter):
     """Custom formatter that supports different formats per loglevel"""
 
     def __init__(self, fmt, datefmt):
-        if isinstance(fmt, dict):
+        if fmt.__class__ is dict:
             for key in LOG_LEVELS:
                 value = fmt[key] if key in fmt else LOG_FORMAT
                 fmt[key] = (formatter.parse(value).format_map,
@@ -257,7 +257,7 @@ def configure_logging(loglevel):
         opts = LOG_FORMAT
 
     if opts:
-        if isinstance(opts, str):
+        if opts.__class__ is str:
             logfmt = opts
             opts = {}
         elif "format" in opts:
@@ -265,7 +265,7 @@ def configure_logging(loglevel):
         else:
             logfmt = LOG_FORMAT
 
-        if not isinstance(logfmt, dict) and colors:
+        if logfmt.__class__ is not dict and colors:
             ansifmt = "\033[{}m{}\033[0m".format
             lf = {}
             for level in LOG_LEVELS:
@@ -297,7 +297,7 @@ def setup_logging_handler(key, fmt=LOG_FORMAT, lvl=LOG_LEVEL, mode="w",
     opts = config.interpolate(("output",), key)
     if not opts:
         return None
-    if not isinstance(opts, dict):
+    if opts.__class__ is not dict:
         opts = {"path": opts}
 
     path = opts.get("path")
@@ -360,7 +360,7 @@ def configure_standard_streams():
         options = config.get(("output",), name)
         if not options:
             options = {"errors": "replace"}
-        elif isinstance(options, str):
+        elif options.__class__ is str:
             options = {"errors": "replace", "encoding": options}
         elif not options.get("errors"):
             options["errors"] = "replace"
@@ -391,7 +391,7 @@ def select():
                 output = PipeOutput()
         except Exception:
             output = PipeOutput()
-    elif isinstance(mode, dict):
+    elif mode.__class__ is dict:
         output = CustomOutput(mode)
     elif not mode:
         output = NullOutput()
@@ -495,11 +495,11 @@ class CustomOutput():
         fmt_success = options.get("success")
         off_skip = off_start = off_success = 0
 
-        if isinstance(fmt_skip, list):
+        if fmt_skip.__class__ is list:
             off_skip, fmt_skip = fmt_skip
-        if isinstance(fmt_start, list):
+        if fmt_start.__class__ is list:
             off_start, fmt_start = fmt_start
-        if isinstance(fmt_success, list):
+        if fmt_success.__class__ is list:
             off_success, fmt_success = fmt_success
 
         if shorten := config.get(("output",), "shorten", True):

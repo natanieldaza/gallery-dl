@@ -59,7 +59,7 @@ def resolve(data):
     while stack:
         target, index, source = stack.pop()
 
-        if isinstance(source, tuple):
+        if source.__class__ is tuple:
             name, source, reviver = source
             try:
                 target[index] = reviver(target[index])
@@ -81,8 +81,8 @@ def resolve(data):
             error(exc)
             continue
 
-        if isinstance(value, list):
-            if value and isinstance(value[0], str):
+        if value.__class__ is list:
+            if value and value[0].__class__ is str:
                 type = value[0]
 
                 if type in REVIVERS:
@@ -143,7 +143,7 @@ def resolve(data):
                 for offset, new in enumerate(value):
                     stack.append((result, offset, new))
 
-        elif isinstance(value, dict):
+        elif value.__class__ is dict:
             result = {}
             for key, new in value.items():
                 stack.append((result, key, new))

@@ -138,9 +138,12 @@ class PillowfortUserExtractor(PillowfortExtractor):
         params = {"p": 1}
 
         while True:
-            posts = self.request_json(url, params=params)["posts"]
+            data = self.request_json(url, params=params)
+            posts = data["posts"]
+
             yield from posts
 
-            if len(posts) < 20:
-                return
+            pages = (data["total_count"]-1) // 20 + 1
+            if not posts or params["p"] >= pages:
+                break
             params["p"] += 1

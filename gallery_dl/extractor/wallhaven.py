@@ -220,7 +220,7 @@ class WallhavenAPI():
             if params_ptr is not None:
                 if meta and "query" in meta:
                     query = meta["query"]
-                    if isinstance(query, dict):
+                    if query.__class__ is dict:
                         params_ptr["tags"] = query.get("tag")
                         params_ptr["tag_id"] = query.get("id")
                     else:

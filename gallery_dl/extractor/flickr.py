@@ -115,7 +115,7 @@ class FlickrImageExtractor(FlickrExtractor):
         if "location" in photo:
             location = photo["location"]
             for key, value in location.items():
-                if isinstance(value, dict):
+                if value.__class__ is dict:
                     location[key] = value["_content"]
 
         url = self._file_url(photo)
@@ -307,7 +307,7 @@ class FlickrAPI(oauth.OAuth1API):
         self.meta_contexts = extractor.config("contexts", False)
 
         self.maxsize = extractor.config("size-max")
-        if isinstance(self.maxsize, str):
+        if self.maxsize.__class__ is str:
             for fmt, fmtname, fmtwidth in self.FORMATS:
                 if self.maxsize == fmt or self.maxsize == fmtname:
                     self.maxsize = fmtwidth
@@ -353,11 +353,11 @@ class FlickrAPI(oauth.OAuth1API):
             user = user["person"]
             for key in ("description", "username", "realname", "location",
                         "profileurl", "photosurl", "mobileurl"):
-                if isinstance(user.get(key), dict):
+                if user.get(key).__class__ is dict:
                     user[key] = user[key]["_content"]
             photos = user["photos"]
             for key in ("count", "firstdate", "firstdatetaken"):
-                if isinstance(photos.get(key), dict):
+                if photos.get(key).__class__ is dict:
                     photos[key] = photos[key]["_content"]
         except Exception:
             pass
@@ -474,9 +474,9 @@ class FlickrAPI(oauth.OAuth1API):
         extras = ("description,date_upload,tags,views,media,"
                   "path_alias,owner_name,")
         if includes := self.extractor.config("metadata"):
-            if isinstance(includes, (list, tuple)):
+            if includes.__class__ is list:
                 includes = ",".join(includes)
-            elif not isinstance(includes, str):
+            elif includes.__class__ is not str:
                 includes = ("license,date_taken,original_format,last_update,"
                             "geo,machine_tags,o_dims")
             extras = extras + includes + ","

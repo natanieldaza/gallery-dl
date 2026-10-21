@@ -42,7 +42,7 @@ class Ao3Extractor(Extractor):
         data_user = {"_extractor": Ao3UserExtractor, "type": "user"}
 
         for item in self._pagination(self.groups[0], needle):
-            path = item.rpartition("/")[0] if part else item
+            path = item[:item.rfind("/")] if part else item
             url = base + path
             if item.startswith("works/"):
                 yield Message.Queue, url, data_work
@@ -100,10 +100,17 @@ class Ao3Extractor(Extractor):
         }
 
     def _pagination(self, path, needle='<li id="work_'):
+        if needle.__class__ is not str:
+            findall = needle.findall
+            needle = None
+
         while True:
             page = self.request(self.root + path).text
 
-            yield from text.extract_iter(page, needle, '"')
+            if needle is None:
+                yield from findall(page)
+            else:
+                yield from text.extract_iter(page, needle, '"')
 
             path = (text.extr(page, '<a rel="next" href="', '"') or
                     text.extr(page, '<li class="next"><a href="', '"'))
@@ -127,7 +134,7 @@ class Ao3WorkExtractor(Ao3Extractor):
             self.formats = ("pdf",)
         elif not formats:
             self.formats = ()
-        elif isinstance(formats, str):
+        elif formats.__class__ is str:
             self.formats = formats.lower().replace(" ", "").split(",")
         else:
             self.formats = formats
@@ -302,7 +309,8 @@ class Ao3UserBookmarkExtractor(Ao3Extractor):
     example = "https://archiveofourown.org/users/USER/bookmarks"
 
     def items(self):
-        return self.items_list("bookmark", '<span class="count"><a href="/')
+        return self.items_list(
+            "bookmark", '<span class="count"><a href="/', True)
 
 
 class Ao3SubscriptionsExtractor(Ao3Extractor):
@@ -312,4 +320,5 @@ class Ao3SubscriptionsExtractor(Ao3Extractor):
     example = "https://archiveofourown.org/users/USER/subscriptions"
 
     def items(self):
-        return self.items_list("subscription", '<dt>\n<a href="/', False)
+        return self.items_list(
+            "subscription", text.re(r'<dt>\s+<a href="/([^"]+)'), False)

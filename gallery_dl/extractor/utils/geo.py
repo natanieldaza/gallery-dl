@@ -259,7 +259,7 @@ COUNTRY_IP_MAP = {
 
 
 def random_ipv4(blocks):
-    if isinstance(blocks, str):
+    if blocks.__class__ is str:
         blocks = blocks.split(",")
 
     cidr = []

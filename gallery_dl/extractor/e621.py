@@ -24,9 +24,9 @@ class E621Extractor(danbooru.DanbooruExtractor):
 
     def items(self):
         if includes := self.config("metadata") or ():
-            if isinstance(includes, str):
+            if includes.__class__ is str:
                 includes = includes.split(",")
-            elif not isinstance(includes, (list, tuple)):
+            elif includes.__class__ is not list:
                 includes = ("notes", "pools")
 
         notes = ("notes" in includes)

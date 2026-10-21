@@ -31,7 +31,7 @@ class DownloaderBase():
         self.partdir = self.config("part-directory")
 
         if self.partdir:
-            if isinstance(self.partdir, dict):
+            if self.partdir.__class__ is dict:
                 self.partdir = [
                     (util.compile_filter(expr) if expr else util.true,
                      util.expand_path(pdir))
@@ -61,7 +61,7 @@ class DownloaderBase():
 
     def _extractor_config(self, extractor):
         path = extractor._cfgpath
-        if not isinstance(path, list):
+        if path.__class__ is not list:
             return self._extractor_opts(path[1], path[2])
 
         opts = {}

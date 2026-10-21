@@ -247,11 +247,11 @@ class FoolfuukaSearchExtractor(FoolfuukaExtractor):
             except ValueError:
                 return
 
-            if isinstance(data, dict):
+            if data.__class__ is dict:
                 if data.get("error"):
                     return
                 posts = data["0"]["posts"]
-            elif isinstance(data, list):
+            elif data.__class__ is list:
                 posts = data[0]["posts"]
             else:
                 return

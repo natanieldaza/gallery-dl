@@ -69,7 +69,7 @@ class KhinsiderSoundtrackExtractor(Extractor):
 
     def _extract_tracks(self, page):
         fmt = self.config("format", ("mp3",))
-        if fmt and isinstance(fmt, str):
+        if fmt and fmt.__class__ is str:
             if fmt == "all":
                 fmt = None
             else:

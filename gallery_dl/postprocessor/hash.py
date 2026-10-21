@@ -21,9 +21,9 @@ class HashPP(PostProcessor):
         self.filename = options.get("filename")
 
         hashes = options.get("mode") or options.get("hashes")
-        if isinstance(hashes, dict):
+        if hashes.__class__ is dict:
             self.hashes = list(hashes.items())
-        elif isinstance(hashes, str):
+        elif hashes.__class__ is str:
             self.hashes = []
             for h in hashes.split(","):
                 name, sep, key = h.partition(":")
@@ -36,7 +36,7 @@ class HashPP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("file",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
 

@@ -28,7 +28,7 @@ class BooruExtractor(BaseExtractor):
         fetch_html = tags or notes
 
         if url_key := self.config("url"):
-            if isinstance(url_key, (list, tuple)):
+            if url_key.__class__ is list:
                 self._file_url = self._file_url_list
                 self._file_url_keys = url_key
             else:

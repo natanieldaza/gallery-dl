@@ -285,7 +285,7 @@ class TestExtractorWait(unittest.TestCase):
             self._assert_isotime(calls[0][1][2], until_local)
 
     def _assert_isotime(self, output, until):
-        if not isinstance(until, dt.datetime):
+        if until.__class__ is not dt.datetime:
             until = dt.datetime.fromtimestamp(until)
         o = self._isotime_to_seconds(output)
         u = self._isotime_to_seconds(until.time().isoformat()[:8])
@@ -316,8 +316,8 @@ class TextExtractorCommonDateminmax(unittest.TestCase):
 
     def test_date_min_max_timestamp(self):
         extr = extractor.find("generic:https://example.org/")
-        config.set((), "date-min", 1262304000)
-        config.set((), "date-max", 1262304000.123)
+        config.setg("date-min", 1262304000)
+        config.setg("date-max", 1262304000.123)
 
         dmin, dmax = extr._get_date_min_max()
         self.assertEqual(dmin, 1262304000)
@@ -325,8 +325,8 @@ class TextExtractorCommonDateminmax(unittest.TestCase):
 
     def test_date_min_max_iso(self):
         extr = extractor.find("generic:https://example.org/")
-        config.set((), "date-min", "2010-01-01")
-        config.set((), "date-max", "2010-01-01T00:01:03")
+        config.setg("date-min", "2010-01-01")
+        config.setg("date-max", "2010-01-01T00:01:03")
 
         dmin, dmax = extr._get_date_min_max()
         self.assertEqual(dmin, 1262304000)
@@ -334,8 +334,8 @@ class TextExtractorCommonDateminmax(unittest.TestCase):
 
     def test_date_min_max_iso_invalid(self):
         extr = extractor.find("generic:https://example.org/")
-        config.set((), "date-min", "2010-01-01")
-        config.set((), "date-max", "2010-01")
+        config.setg("date-min", "2010-01-01")
+        config.setg("date-max", "2010-01")
 
         with self.assertLogs() as log_info:
             dmin, dmax = extr._get_date_min_max()
@@ -350,8 +350,8 @@ class TextExtractorCommonDateminmax(unittest.TestCase):
 
     def test_date_min_max(self):
         extr = extractor.find("generic:https://example.org/")
-        config.set((), "date-min", "2010-01-01")
-        config.set((), "date-max", "2022-08-18")
+        config.setg("date-min", "2010-01-01")
+        config.setg("date-max", "2022-08-18")
 
         dmin, dmax = extr._get_date_min_max()
         self.assertEqual(dmin, 1262304000)
@@ -359,8 +359,8 @@ class TextExtractorCommonDateminmax(unittest.TestCase):
 
     def test_date_min_max_mix(self):
         extr = extractor.find("generic:https://example.org/")
-        config.set((), "date-min", "2010-01-01")
-        config.set((), "date-max", 1262304061)
+        config.setg("date-min", "2010-01-01")
+        config.setg("date-max", 1262304061)
 
         dmin, dmax = extr._get_date_min_max()
         self.assertEqual(dmin, 1262304000)

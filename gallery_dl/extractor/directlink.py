@@ -32,7 +32,7 @@ class DirectlinkExtractor(Extractor):
         url = self.url
 
         if trfm := self.config("transform"):
-            if isinstance(trfm, dict):
+            if trfm.__class__ is dict:
                 trfm = trfm.items()
             for pattern, sub in trfm:
                 url = text.re(pattern).sub(sub, url)

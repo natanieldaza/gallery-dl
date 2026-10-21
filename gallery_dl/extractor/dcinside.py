@@ -46,16 +46,28 @@ class DcinsideGalleryExtractor(GalleryExtractor):
         }
 
     def images(self, page):
+        base = "https://image.dcinside.com/viewimage.php?no="
+        abox = text.extr(page, 'class="appending_file_box', "</div>")
+
         if write_div := text.extr(page, 'class="write_div', "</div>"):
             results = []
             for img in text.extract_iter(write_div, "<img", ">"):
+                data = {
+                    "fid": text.extr(img, '?id=', '&'),
+                    "alt": text.extr(img, ' alt="', '"'),
+                    "extension": "jpg",
+                }
                 url = text.unescape(text.extr(img, ' data-original="', '"') or
                                     text.extr(img, ' src="', '"') or
                                     text.extr(img, " src='", "'"))
-                results.append((url, {
-                    "hash"     : text.extr(img, ' alt="', '"'),
-                    "extension": "jpg",
-                }))
+                if key := text.extr(img, "/viewimagePop.php?no=", "'"):
+                    data["_fallback"] = (url,)
+                    data["no"] = key
+                    url = base + key
+                    if name := text.extr(abox, key + '&f_no=', '"'):
+                        text.nameext_from_name(
+                            text.unquote(text.unescape(name)), data)
+                results.append((url, data))
             return results
 
         if image := text.extr(page, '"image":{', '}'):

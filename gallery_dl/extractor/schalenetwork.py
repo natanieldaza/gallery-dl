@@ -201,9 +201,9 @@ class SchalenetworkGalleryExtractor(SchalenetworkExtractor, GalleryExtractor):
 
         if not fmt or fmt == "best":
             fmtids = ("0", "1600", "1280", "980", "780")
-        elif isinstance(fmt, str):
+        elif fmt.__class__ is str:
             fmtids = fmt.split(",")
-        elif isinstance(fmt, list):
+        elif fmt.__class__ is list:
             fmtids = fmt
         else:
             fmtids = (str(fmt),)

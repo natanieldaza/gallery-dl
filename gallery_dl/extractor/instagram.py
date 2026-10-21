@@ -16,6 +16,23 @@ import itertools
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?instagram\.com"
 USER_PATTERN = BASE_PATTERN + r"/(?!(?:p|tv|reel|explore|stories)/)([^/?#]+)"
 
+QUERIES = {
+    "PolarisProfilePostsTabContentQuery_connection":
+        ("39229011733413759", ""),
+    "PolarisProfileReelsTabContentQuery_connection":
+        ("28989741540630190", "/reels"),
+    "PolarisProfileTaggedTabContentQuery_connection":
+        ("28794602806842110", "/tagged"),
+    "PolarisProfileStoryHighlightsTrayContentQuery":
+        ("26970053832668570", ""),
+    "PolarisStoriesV3ReelPageGalleryQuery":
+        ("28262315486766731", ""),
+    "PolarisStoriesV3TrayContainerQuery":
+        ("27703822975903310", ""),
+    "PolarisProfilePageContentQuery":
+        ("28649589871350527", ""),
+}
+
 
 class InstagramExtractor(Extractor):
     """Base class for instagram extractors"""
@@ -50,11 +67,13 @@ class InstagramExtractor(Extractor):
 
         if not (wd := self.config("wd", False)):
             self.cookies.set("wd", None, domain=self.cookies_domain)
-        elif isinstance(wd, str):
+        elif wd.__class__ is str:
             self.cookies.set("wd", wd, domain=self.cookies_domain)
 
         self.api = InstagramAPI(self)
 
+        self._highlight_covers = \
+            True if self.config("covers") else False
         self._static_video = \
             True if self.config("static-videos", True) else False
         self._warn_video = \
@@ -79,9 +98,9 @@ class InstagramExtractor(Extractor):
             audio_dash = False
 
         if previews := self.config("previews", False):
-            if isinstance(previews, str):
+            if previews.__class__ is str:
                 previews = previews.split(",")
-            elif not isinstance(previews, (list, tuple)):
+            elif previews.__class__ is not list:
                 previews = {"video", "audio"}
             previews_video = ("video" in previews)
             previews_audio = ("audio" in previews)
@@ -243,6 +262,17 @@ class InstagramExtractor(Extractor):
                 data["highlight_title"] = title
             if not post.get("seen"):
                 post["seen"] = post.get("latest_reel_media")
+            if self._highlight_covers and (cover := post.get("cover_media")):
+                if img := (cover.get("full_image_version") or
+                           cover.get("cropped_image_version")):
+                    img = img.copy()
+                    img.setdefault("width", 0)
+                    img.setdefault("height", 0)
+                    items.insert(0, {
+                        "pk": f"{reel_id}_cover",
+                        "code": reel_id,
+                        "taken_at": post["seen"],
+                        "image_versions2": {"candidates": (img,)}})
 
         else:  # regular image/video post
             data = {
@@ -348,9 +378,11 @@ class InstagramExtractor(Extractor):
                 continue
 
             if not self._static_video and \
-                    (type_orig := item.get("original_media_type")) and \
-                    type_orig == 1 and type_orig != item.get("media_type"):
-                if item.pop("video_versions", None):
+                    (manifest := item.get("video_dash_manifest")) and \
+                    (framerate := text.extr(manifest, 'frameRate="', '"')):
+                num, _, den = framerate.partition("/")
+                if num == den:
+                    item.pop("video_versions", None)
                     item["original_width"] = image["width"]
                     item["original_height"] = image["height"]
 
@@ -364,8 +396,8 @@ class InstagramExtractor(Extractor):
                     width = width_orig
                     height = height_orig
                 else:
-                    width = video["width"]
-                    height = video["height"]
+                    width = video.get("width") or width_orig
+                    height = video.get("height") or height_orig
 
                 if self._warn_video:
                     self._warn_video = False
@@ -830,6 +862,8 @@ class InstagramExtractor(Extractor):
             except Exception:
                 user[key] = 0
 
+        return user
+
 
 class InstagramPostExtractor(InstagramExtractor):
     """Extractor for an Instagram post"""
@@ -1043,7 +1077,22 @@ class InstagramHighlightsExtractor(InstagramExtractor):
     example = "https://www.instagram.com/USER/highlights/"
 
     def posts(self):
-        return self.api.highlights_media(self.item)
+        reel_ids = [hl["id"] for hl in self.api.highlights_tray(self.item)]
+
+        if order := self.config("order-posts"):
+            if order in {"desc", "reverse"}:
+                reel_ids.reverse()
+            elif order in {"id", "id_asc"}:
+                reel_ids.sort(key=lambda r: int(r[10:]))
+            elif order == "id_desc":
+                reel_ids.sort(key=lambda r: int(r[10:]), reverse=True)
+            elif order != "asc":
+                self.log.warning("Unknown posts order '%s'", order)
+
+        chunk_size = 5
+        for offset in range(0, len(reel_ids), chunk_size):
+            yield from self.api.reels_media(
+                reel_ids[offset : offset+chunk_size])
 
 
 class InstagramFollowersExtractor(InstagramExtractor):
@@ -1129,43 +1178,17 @@ class InstagramAvatarExtractor(InstagramExtractor):
     example = "https://www.instagram.com/USER/avatar/"
 
     def posts(self):
-        if self._logged_in:
-            # immich patch: take the avatar from the user block `user()` has
-            # ALREADY built. It used to resolve the handle, throw the result
-            # away and spend a second request on /v1/users/<id>/info/ for the
-            # same profile — an endpoint Instagram has refused since late
-            # September 2026 (see _PROFILE_DOC_ID), which is what broke this
-            # extractor. PolarisProfilePageContentQuery carries
-            # `hd_profile_pic_url_info` and `profile_pic_url`, so the first
-            # lookup is now sufficient and the second is pure cost.
-            user = self.api.user(self.item, check_private=False)
-            if "hd_profile_pic_url_info" not in user and \
-                    "hd_profile_pic_versions" not in user:
-                # A thin block — topsearch answered and the upgrade failed.
-                # Worth one attempt at the old endpoint before giving up.
-                user = self.api.user_by_id(user["id"])
-            avatar = (user.get("hd_profile_pic_url_info") or
-                      (user.get("hd_profile_pic_versions") or [None])[-1] or
-                      {"url": user["profile_pic_url"]})
-            # The GraphQL profile gives {"url": ...} and nothing else, where
-            # the REST one carried width/height. Default them rather than
-            # KeyError, exactly as the logged-out branch below already does.
-            avatar = {"url"   : avatar["url"],
-                      "width" : avatar.get("width", 0),
-                      "height": avatar.get("height", 0)}
-        else:
-            user = self.item
-            if user.startswith("id:"):
-                user = self.api.user_by_id(user[3:])
-            else:
-                user = self.api.user_by_screen_name(user)
-                user["pk"] = user["id"]
-            url = user.get("profile_pic_url_hd") or user["profile_pic_url"]
-            avatar = {"url": url, "width": 0, "height": 0}
+        user = self.api.user(self.item, check_private=False)
+        avatar = (user.get("hd_profile_pic_url_info") or
+                  user["hd_profile_pic_versions"][-1])
+        avatar.setdefault("width", 0)
+        avatar.setdefault("height", 0)
 
         if pk := user.get("profile_pic_id"):
             pk = pk.partition("_")[0]
             code = shortcode_from_id(pk)
+        elif pk := text.rextr(avatar["url"], "/", "_n."):
+            code = pk
         else:
             pk = code = "avatar:" + str(user.get("pk") or user["id"])
 
@@ -1192,46 +1215,14 @@ class InstagramAPI():
         else:
             self._user_cache_mem = False
             self._user_cache_exp = (text.parse_int(_cache.partition(":")[2])
-                                    if isinstance(_cache, str) else 0)
-
-        if strategy := self.extractor.config("user-strategy"):
-            if isinstance(strategy, str):
-                strategy = strategy.split(",")
-            self._strategy_uid = strategy
-        else:
-            self._strategy_uid = ("search", "web")
-
-    def highlights_media(self, handle, chunk_size=5):
-        reel_ids = [hl["id"] for hl in self.highlights_tray(handle)]
-
-        if order := self.extractor.config("order-posts"):
-            if order in {"desc", "reverse"}:
-                reel_ids.reverse()
-            elif order in {"id", "id_asc"}:
-                reel_ids.sort(key=lambda r: int(r[10:]))
-            elif order == "id_desc":
-                reel_ids.sort(key=lambda r: int(r[10:]), reverse=True)
-            elif order != "asc":
-                self.extractor.log.warning("Unknown posts order '%s'", order)
-
-        for offset in range(0, len(reel_ids), chunk_size):
-            yield from self.reels_media(
-                reel_ids[offset : offset+chunk_size])
+                                    if _cache.__class__ is str else 0)
 
     def highlights_tray(self, handle):
-        user = self.user(handle)
-        variables = {"user_id": str(user["id"])}
+        variables = {"user_id": str(self.user(handle)["id"])}
 
-        return self._pagination_graphql(
-            "PolarisProfileStoryHighlightsTrayContentQuery",
-            "highlights",
-            "",
-            "26970053832668570",
-            variables)
-
-    def highlights_tray_legacy(self, user_id):
-        endpoint = f"/v1/highlights/{user_id}/highlights_tray/"
-        return self._call(endpoint)["tray"]
+        result = self._call_graphql(
+            "PolarisProfileStoryHighlightsTrayContentQuery", variables)
+        return [edge["node"] for edge in result["highlights"]["edges"]]
 
     def media(self, shortcode):
         # PRIMARY: REST '/v1/media/{id}/info/'. This endpoint was briefly gated
@@ -1393,23 +1384,25 @@ class InstagramAPI():
         }
 
         return self._pagination_graphql(
-            "PolarisStoriesV3HighlightsPageQuery",
-            "xdt_api__v1__feed__reels_media__connection",
-            "",
-            "28325328583775973",
-            variables)
-
-    def reels_media_legacy(self, reel_ids):
-        endpoint = "/v1/feed/reels_media/"
-        params = {"reel_ids": reel_ids}
-        try:
-            return self._call(endpoint, params=params)["reels_media"]
-        except KeyError:
-            raise self.exc.AuthRequired("authenticated cookies")
+            "PolarisStoriesV3ReelPageGalleryQuery", variables,
+            "xdt_api__v1__feed__reels_media__connection")
 
     def reels_tray(self):
-        endpoint = "/v1/feed/reels_tray/"
-        return self._call(endpoint)["tray"]
+        variables = {
+            "data": {
+                "is_following_feed": False,
+                "reason": "web_home",
+            },
+            "suggestedUsersData": {
+                "max_id": "",
+                "max_number_to_display": 0,
+                "module": "stories_tray",
+                "paginate": False,
+            },
+        }
+        return self._call_graphql(
+            "PolarisStoriesV3TrayContainerQuery", variables,
+        )["xdt_api__v1__feed__reels_tray"]["tray"]
 
     def tags_media(self, tag):
         for section in self.tags_sections(tag):
@@ -1451,62 +1444,34 @@ class InstagramAPI():
             _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_id_impl(self, user_id):
-        endpoint = f"/v1/users/{user_id}/info/"
+        variables = {
+            "enable_integrity_filters": True,
+            "id"                      : user_id,
+            "__relay_internal__pv__"
+            "PolarisCannesGuardianExperienceEnabledrelayprovider": True,
+            "__relay_internal__pv__"
+            "PolarisCASB976ProfileEnabledrelayprovider": False,
+            "__relay_internal__pv__"
+            "PolarisProfileInformTreatmentBannerEnabledrelayprovider": False,
+            "__relay_internal__pv__"
+            "PolarisWebSchoolsEnabledrelayprovider": False,
+            "__relay_internal__pv__"
+            "PolarisProfileRingsGradientEnabledrelayprovider": False,
+            "__relay_internal__pv__"
+            "PolarisRepostsConsumptionEnabledrelayprovider": True,
+            "__relay_internal__pv__"
+            "PolarisShortDramaEnabledrelayprovider": True,
+        }
+
         try:
-            # immich patch: ONE attempt, not the usual five.
-            #
-            # Instagram decommissioned this endpoint in late September 2026 —
-            # it answers 429 with an empty body, no Retry-After and a
-            # text/html content type, for any account, on a fresh session,
-            # after hours of idling (its sibling /v1/media/<id>/info/ still
-            # answers 400 + JSON to a bogus id, so the handler is simply gone
-            # rather than throttled). Retrying that costs five minutes of a
-            # download lane to learn nothing.
-            #
-            # Every caller now reaches this only after the GraphQL profile
-            # query has already failed, so a fast "no" is the useful answer.
-            return self._call(endpoint, notfound="user", retries=0)["user"]
-        except self.extractor.exc.ControlException:
+            return self._call_graphql(
+                "PolarisProfilePageContentQuery", variables, notfound="user",
+            )["user"]
+        except self.exc.ControlException:
             raise
-        except Exception:
+        except Exception as exc:
+            self.extractor.log.traceback(exc)
             raise self.exc.NotFoundError("user")
-
-    def user_by_name(self, username):
-        return self.extractor.cache(
-            self._user_by_name_impl, username,
-            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
-
-    def _user_by_name_impl(self, username):
-        endpoint = "/v1/users/web_profile_info/"
-        params = {"username": username}
-        try:
-            return self._call(
-                endpoint, params=params, notfound="user")["data"]["user"]
-        except self.extractor.exc.ControlException:
-            raise
-        except Exception:
-            raise self.exc.NotFoundError("user")
-
-    def user_by_search(self, username):
-        return self.extractor.cache(
-            self._user_by_search_impl, username,
-            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
-
-    def _user_by_search_impl(self, username):
-        url = "https://www.instagram.com/web/search/topsearch/"
-        params = {"query": username}
-
-        name = username.lower()
-        try:
-            for result in self._call(url, params=params)["users"]:
-                user = result["user"]
-                if user["username"].lower() == name:
-                    return user
-        except self.extractor.exc.ControlException:
-            raise
-        except Exception:
-            pass
-        raise self.exc.NotFoundError("user")
 
     def user_by_web(self, username):
         return self.extractor.cache(
@@ -1514,134 +1479,35 @@ class InstagramAPI():
             _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_web_impl(self, username):
-        url = "https://www.instagram.com/" + username
-
         try:
-            headers = {
-                "Accept": "text/html,application/xhtml+xml,"
-                          "application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5",
-                "Accept-Encoding": "gzip, deflate, br, zstd",
-                "Alt-Used": "www.instagram.com",
-                "Connection": "keep-alive",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Priority": "u=0, i",
-            }
-            page = self.extractor.request(url, headers=headers).text
-            user = {}
+            page = self.extractor.cache(self._webpage, "/" + username)
             if user_id := text.extr(page, '"profile_id":"', '"'):
-                user["id"] = user_id
-            if username := text.extr(page, '"username":"', '"'):
-                user["username"] = username
-        except Exception:
-            pass
-        if user:
-            return user
+                username = text.extr(page, '"params":{"username":"', '"')
+                return {"id": user_id, "username": username}
+        except self.exc.ControlException:
+            raise
+        except Exception as exc:
+            self.extractor.log.traceback(exc)
+        self.extractor.log.debug("Server response:\n%s", page)
         raise self.exc.NotFoundError("user")
 
-    def user_by_screen_name(self, screen_name):
-        for strategy in self._strategy_uid:
-            try:
-                if strategy in {"search", "topsearch"}:
-                    return self.user_by_search(screen_name)
-                elif strategy in {"info", "web_profile_info", "api"}:
-                    return self.user_by_name(screen_name)
-                elif strategy in {"web", "webpage"}:
-                    return self.user_by_web(screen_name)
-                else:
-                    self.extractor.log.warning("Invalid strategy %r", strategy)
-            except Exception:
-                self.extractor.log.debug("Failed to get user via %r", strategy)
-        raise self.exc.NotFoundError("user")
+    def user(self, handle, check_private=True):
+        if handle.startswith("id:"):
+            user_id = handle[3:]
+        else:
+            user = self.user_by_web(handle)
+            user_id = self.extractor._assign_user(user)["id"]
+        user = self.user_by_id(user_id)
 
-    def user(self, screen_name, check_private=True):
-        if screen_name.startswith("id:"):
-            uid = screen_name[3:]
-            # immich patch: GraphQL first here too. This branch used to go
-            # STRAIGHT to /v1/users/<id>/info/, the endpoint Instagram
-            # decommissioned in late September 2026 (see _PROFILE_DOC_ID), so
-            # every `instagram.com/id:<uid>/` url spent five retries a minute
-            # apart on a 429 with an empty body and then died with a bogus
-            # "Requested user could not be found" — for accounts that are
-            # perfectly alive.
-            #
-            # PolarisProfilePageContentQuery is keyed by the numeric id: the
-            # username it is normally called with is only the page the lsd /
-            # fb_dtsg / doc_id are scraped from, and the site root serves those
-            # just as well. So a uid on its own is enough, which is exactly
-            # what this branch has.
-            user = None
-            for source, fetch in (
-                (_PROFILE_OPNAME, lambda: self.user_by_graphql("", uid)),
-                (f"id:{uid}", lambda: self.user_by_id(uid)),
-            ):
-                try:
-                    user = fetch()
-                except Exception as exc:
-                    self.extractor.log.debug(
-                        "Could not resolve id:%s via %s: %s: %s",
-                        uid, source, exc.__class__.__name__, exc)
-                else:
-                    break
-            if user is None:
-                raise self.exc.NotFoundError("user")
-            self.extractor._user = user
-            return user
+        if check_private and user.get("is_private"):
+            fs = user.get("friendship_status")
+            if fs and not fs.get("following", True) or \
+                    not user.get("followed_by_viewer", True):
+                name = user["username"]
+                s = "" if name.endswith("s") else "s"
+                self.extractor.log.warning("%s'%s posts are private", name, s)
 
-        user = self.user_by_screen_name(screen_name)
-        if check_private and user.get("is_private") and (
-                not user.get("followed_by_viewer", True) or
-                not user.get("friendship_status", {}).get("following", True)):
-            name = user["username"]
-            s = "" if name.endswith("s") else "s"
-            self.extractor.log.warning("%s'%s posts are private", name, s)
-
-        # --- immich patch: upgrade a thin user block to the real profile ---
-        # Since 1.32.7 the default uid strategy is `topsearch`, and its user object carries
-        # no biography and no counts (all the `edge_*` keys are absent, so _assign_user
-        # zeroes count_media/count_followed/...). `web_profile_info` would have them but
-        # 429s on the first call AND on all 5 retries, a minute apart, so it is unusable as
-        # a first strategy. The app endpoint used by user_by_id (/v1/users/<id>/info/) is
-        # NOT throttled and returns the full 220-key profile — and topsearch has just handed
-        # us the numeric id. So spend one extra (disk-cached) request and stamp the real
-        # profile into every post's `user` block, exactly as the `id:<uid>` branch above
-        # does. Without this a first-time download of a handle can never carry a bio: the
-        # id:-form rewrite on our side needs a uid that only a previous download provides.
-        uid = user["id"]
-        if self.extractor.config("metadata") and "biography" not in user:
-            # GraphQL FIRST. The REST profile endpoint has been throttled since
-            # late September 2026 (see _PROFILE_DOC_ID), so asking it first
-            # spends the whole retry budget — five attempts a minute apart — on
-            # a refusal before anything else is tried. It stays as the fallback
-            # because it is still the richer answer on the occasions it lands.
-            upgraded = None
-            for source, fetch in (
-                (_PROFILE_OPNAME, lambda: self.user_by_graphql(
-                    screen_name, uid)),
-                (f"id:{uid}", lambda: self.user_by_id(uid)),
-            ):
-                try:
-                    upgraded = fetch()
-                except Exception as exc:
-                    # The REASON, not just the fact. A 429, a redirect and a
-                    # challenge page all used to arrive here as one
-                    # indistinguishable line, because _user_by_id_impl converts
-                    # every exception into NotFoundError.
-                    self.extractor.log.debug(
-                        "Could not upgrade user block for %s via %s: %s: %s",
-                        screen_name, source, exc.__class__.__name__, exc)
-                else:
-                    break
-            if upgraded is not None:
-                # Upstream renamed user_id() -> user(): callers now want the
-                # user OBJECT, not the uid (user_feed does user(h)["username"]).
-                self.extractor._user = user = upgraded
-                return user
-
-        self.extractor._assign_user(user)
-        return user
+        return self.extractor._assign_user(user)
 
     def user_collection(self, collection_id):
         endpoint = f"/v1/feed/collection/{collection_id}/posts/"
@@ -1649,40 +1515,36 @@ class InstagramAPI():
         return self._pagination(endpoint, params, media=True)
 
     def user_feed(self, handle):
-        username = self.user(handle)["username"]
-
         variables = {
-            "after" : None,
-            "before": None,
-            "data": {
+            "after"   : None,
+            "before"  : None,
+            "data"    : {
                 "count": 12,
                 "include_reel_media_seen_timestamp": True,
                 "include_relationship_info": True,
                 "latest_besties_reel_media": True,
                 "latest_reel_media": True,
             },
-            "first": 12,
+            "first"   : 12,
             "include_multi_captions": True,
-            "last": None,
-            "username": username,
+            "last"    : None,
+            "username": self.user(handle)["username"],
             "__relay_internal__pv__"
             "PolarisMultiCaptionCarouselEnabledrelayprovider": True,
             "__relay_internal__pv__"
-            "PolarisShortDramaEnabledrelayprovider": False,
+            "PolarisShortDramaEnabledrelayprovider": True,
+            "__relay_internal__pv__"
+            "PolarisThreadsStyleCommentsEnabledrelayprovider": False,
             "__relay_internal__pv__"
             "PolarisReelsRecoDebugOverlayEnabledrelayprovider": False,
         }
 
         return self._pagination_graphql(
-            "PolarisProfilePostsTabContentQuery_connection",
-            "xdt_api__v1__feed__user_timeline_graphql_connection",
-            "",
-            "28975909992013618",
-            variables)
+            "PolarisProfilePostsTabContentQuery_connection", variables,
+            "xdt_api__v1__feed__user_timeline_graphql_connection")
 
     def user_reels(self, handle):
-        user = self.user(handle)
-        user_id = str(user["id"])
+        user_id = str(self.user(handle)["id"])
 
         variables = {
             "after": "",
@@ -1698,11 +1560,8 @@ class InstagramAPI():
         }
 
         return self._pagination_graphql(
-            "PolarisProfileReelsTabContentQuery_connection",
-            "fetch__XDTUserDict",
-            "reels",
-            "28647575511547745",
-            variables)
+            "PolarisProfileReelsTabContentQuery_connection", variables,
+            "fetch__XDTUserDict")
 
     def user_followers(self, user_id):
         endpoint = f"/v1/friendships/{user_id}/followers/"
@@ -1732,16 +1591,8 @@ class InstagramAPI():
         }
 
         return self._pagination_graphql(
-            "PolarisProfileTaggedTabContentQuery_connection",
-            "xdt_api__v1__usertags__user_id__feed_connection",
-            "tagged",
-            "28412176455057653",
-            variables)
-
-    def user_tagged_legacy(self, user_id):
-        endpoint = f"/v1/usertags/{user_id}/feed/"
-        params = {"count": 20}
-        return self._pagination(endpoint, params)
+            "PolarisProfileTaggedTabContentQuery_connection", variables,
+            "xdt_api__v1__usertags__user_id__feed_connection")
 
     def _extract_fb_tokens(self, path):
         extr = self.extractor
@@ -1766,35 +1617,104 @@ class InstagramAPI():
         extr.log.debug("Found 'lsd=%s' & 'fb_dtsg=%s'", lsd, dtsg)
         return lsd, dtsg
 
-    def _extract_docid(self, path, opname):
+    def _extract_docid(self, opname, path):
         extr = self.extractor
-        if doc_id := extr.config("doc-id"):
-            extr.log.debug("Using 'config' doc_id value")
-            return doc_id
+        extr.log.debug("Looking up '%s' doc_id value", opname)
 
-        extr.log.debug("Extracting '%s' doc_id value", opname)
-        needle = opname + "_instagramRelayOperation"
-        doc_id = ""
-        for path in util.unique(text.extract_iter(
-                extr.cache(self._webpage, path),
-                'href="https://static.cdninstagram.com/rsrc.php/', '"')):
-            if not path.endswith(".js"):
+        docid_map = self._extract_docid_map(path)
+        for name, docid in docid_map.items():
+            extr.cache_update(self._extract_docid, name, docid,
+                              _exp=86400, _mem=False)
+        return docid_map[opname]
+
+    def _extract_docid_map(self, path):
+        extr = self.extractor
+        docid_map = {}
+
+        base = "https://static.cdninstagram.com/rsrc.php/"
+        pattern = text.re(
+            r'__d\("(\w+)_instagramRelayOperation",\[\],'
+            r'\(function\([^)]+\).+?\bexports="([^"]+)')
+        for href in util.unique(text.extract_iter(
+                extr.cache(self._webpage, path), 'href="' + base, '"')):
+            if not href.endswith(".js"):
                 continue
-            url = "https://static.cdninstagram.com/rsrc.php/" + path
+            url = base + text.unescape(href)
             script = extr.request(url, interval=False).text
-            if (pos := script.find(needle)) < 0:
-                continue
-            if match := text.re(
-                    r'exports\s*=\s*["\']?(\d{10,20})').search(
-                    script, pos, pos+1000):
-                doc_id = match[1]
-                break
-        extr.log.debug("Found 'doc_id=%s'", doc_id)
-        return doc_id
+            for opname, docid in pattern.findall(script):
+                if opname in QUERIES:
+                    docid_map[opname] = docid
+
+        return docid_map
 
     def _webpage(self, path):
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                      "image/avif,image/webp,image/apng,*/*;q=0.8,"
+                      "application/signed-exchange;v=b3;q=0.7",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-User": "?1",
+            "Sec-Fetch-Dest": "document",
+        }
         extr = self.extractor
-        return extr.request(f"{extr.root}{path}/", interval=False).text
+        return extr.request(f"{extr.root}{path}/", headers=headers,
+                            interval=False).text
+
+    def _prepare_graphql(self, opname, fieldname=None):
+        extr = self.extractor
+        root = extr.root
+
+        doc_id, path = QUERIES[opname]
+        if extr._user:
+            path = f"/{extr._user['username']}{path}"
+
+        fb_lsd, fb_dtsg = self._extract_fb_tokens(path)
+        doc_id = extr.cache(self._extract_docid, opname, path,
+                            _exp=86400, _mem=False) or doc_id
+
+        headers = {
+            "Accept"            : "*/*",
+            "Content-Type"      : "application/x-www-form-urlencoded",
+            "X-FB-Friendly-Name": opname,
+            "X-CSRFToken"       : extr.csrf_token,
+            "X-IG-App-ID"       : "936619743392459",
+            "X-IG-Max-Touch-Points": "0",
+            "X-Root-Field-Name" : fieldname,
+            "X-FB-LSD"          : fb_lsd,
+            "X-ASBD-ID"         : "359341",
+            "Origin"            : root,
+            "Alt-Used"          : root[8:],
+            "Connection"        : "keep-alive",
+            "Referer"           : f"{root}{path}/",
+            "Cookie"            : None,
+            "Sec-Fetch-Dest"    : "empty",
+            "Sec-Fetch-Mode"    : "cors",
+            "Sec-Fetch-Site"    : "same-site",
+        }
+        body = {
+            "av"    : "17841415137994167",
+            "__d"   : "www",
+            "__user": "0",
+            "__a"   : "1",
+            "__req" : "0",
+            "__hs"  : "20731.HYP%3Ainstagram_web_pkg.2.1...0",
+            "dpr"   : "1",
+            "__ccg" : "EXCELLENT",
+            "__rev" : "1049285836",
+            "__hsi" : "7693193318680449885",
+            "__comet_req": "7",
+            "fb_dtsg"  : fb_dtsg,
+            "jazoest"  : "26461",
+            "lsd"      : fb_lsd,
+            "fb_api_caller_class": "RelayModern",
+            "fb_api_req_friendly_name": opname,
+            "server_timestamps": "true",
+            "variables": None,
+            "doc_id"   : doc_id,
+        }
+
+        return headers, body
 
     def _call(self, endpoint, **kwargs):
         extr = self.extractor
@@ -1814,6 +1734,27 @@ class InstagramAPI():
         }
         return extr.request_json(url, **kwargs)
 
+    def _call_graphql(self, opname, variables, **kwargs):
+        extr = self.extractor
+
+        kwargs["method"] = "POST"
+        kwargs["headers"], body = self._prepare_graphql(opname)
+        kwargs["data"] = body
+        body["variables"] = util.json_dumps(variables)
+
+        extr.log.debug("%s (%s)", opname, body["doc_id"])
+        extr.log.debug(body["variables"])
+        response = extr.request(extr.root + "/api/graphql", **kwargs)
+
+        try:
+            return util.json_loads(response.text)["data"]
+        except (ValueError, KeyError) as exc:
+            extr.status |= 1
+            extr.log.debug("Server response:\n%s", response.text)
+            extr.log.error("Failed to load API data (%s: %s)",
+                           exc.__class__.__name__, exc)
+            raise
+
     def _pagination(self, endpoint, params=None, media=False):
         if params is None:
             params = {}
@@ -1832,21 +1773,6 @@ class InstagramAPI():
             if not data.get("more_available"):
                 return extr._update_cursor(None)
             params["max_id"] = extr._update_cursor(data["next_max_id"])
-
-    def _pagination_post(self, endpoint, params):
-        extr = self.extractor
-        params["max_id"] = extr._init_cursor()
-
-        while True:
-            data = self._call(endpoint, method="POST", data=params)
-
-            for item in data["items"]:
-                yield item["media"]
-
-            info = data["paging_info"]
-            if not info.get("more_available"):
-                return extr._update_cursor(None)
-            params["max_id"] = extr._update_cursor(info["max_id"])
 
     def _pagination_sections(self, endpoint, params):
         extr = self.extractor
@@ -1876,181 +1802,33 @@ class InstagramAPI():
                 return extr._update_cursor(None)
             params["max_id"] = extr._update_cursor(next_max_id)
 
-    def user_by_graphql(self, username, user_id):
-        """The profile /v1/users/<id>/info/ used to return, via the web query."""
-        # `_key=1` — cache under the USER ID, args[1], not the default args[0].
-        # The username is only the page the tokens are scraped from, and the
-        # `id:<uid>` branch of user() passes "" for it, so keying on args[0]
-        # would file every numeric-id lookup under one shared empty key and
-        # hand the second account the first account's profile. The uid is the
-        # identity anyway, so this also stops the same profile being cached
-        # twice when it is reached once by handle and once by id.
-        return self.extractor.cache(
-            self._user_by_graphql_impl, username, user_id, _key=1,
-            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
-
-    def _user_by_graphql_impl(self, username, user_id):
-        variables = {"id": user_id, "enable_integrity_filters": False}
-        variables.update(_PROFILE_PROVIDERS)
-        # A PATH, not a username: upstream's _webpage does f"{root}{path}/",
-        # so the leading slash is load-bearing (without it the host becomes
-        # "www.instagram.comchanelb4byyy2.0_" and DNS fails). And an EMPTY
-        # username must stay empty rather than becoming "/", which would ask
-        # for "https://www.instagram.com//" — a page that carries no __eqmc
-        # block and so no tokens. "" gives the site root, which does.
-        path = "/" + username if username else ""
-        data = self._call_graphql(
-            path, _PROFILE_OPNAME, _PROFILE_FIELD, _PROFILE_DOC_ID,
-            variables).get("data") or {}
-        # The query ALIASES its root field to "user"; the raw field name is the
-        # fallback in case a future revision drops the alias.
-        user = data.get("user") or data.get(_PROFILE_FIELD)
-        if not user or "biography" not in user:
-            # A thin or empty answer is the failure this exists to avoid. Say so
-            # rather than returning something the caller will cache and stamp
-            # into every sidecar.
-            raise self.exc.NotFoundError("user")
-        return user
-
-    def _call_graphql(self, path, opname, fieldname, doc_id, variables):
-        """One GraphQL query, no cursor. Sibling of _pagination_graphql.
-
-        Deliberately not folded into that method: it is the working path for
-        every post, reel and highlight listing, and a profile lookup is not
-        worth the risk of touching it.
-        """
+    def _pagination_graphql(self, opname, variables, fieldname, route=None):
         extr = self.extractor
         url = extr.root + "/graphql/query"
-        fb_lsd, fb_dtsg = self._extract_fb_tokens(path)
 
-        headers = {
-            "Accept": "*/*",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-FB-Friendly-Name": opname,
-            "X-CSRFToken": extr.csrf_token,
-            "X-IG-App-ID": "936619743392459",
-            "X-IG-Max-Touch-Points": "0",
-            "X-BLOKS-VERSION-ID": "62077fc559de123afe03ebeb18194a88"
-                                  "ba5d4e6874d9a07873752f3792adb8a0",
-            "X-Root-Field-Name": fieldname,
-            "X-FB-LSD": fb_lsd,
-            "X-ASBD-ID": "359341",
-            "Origin": extr.root,
-            "Alt-Used": extr.root[8:],
-            "Connection": "keep-alive",
-            "Referer": f"{extr.root}{path}/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-        }
-        body = {
-            "av"    : "17841415137994167",
-            "__d"   : "www",
-            "__user": "0",
-            "__a"   : "1",
-            "__req" : "0",
-            "__hs"  : "20706.HYP%3Ainstagram_web_pkg.2.1...0",
-            "dpr"   : "1",
-            "__ccg" : "EXCELLENT",
-            "__rev" : "1047183312",
-            "__hsi" : "7683797502103314933",
-            "__comet_req": "7",
-            "fb_dtsg"  : fb_dtsg,
-            "jazoest"  : "26461",
-            "lsd"      : fb_lsd,
-            "__crn"    : "comet.igweb.PolarisProfilePostsTabRoute",
-            "fb_api_caller_class": "RelayModern",
-            "fb_api_req_friendly_name": opname,
-            "server_timestamps": "true",
-            "variables": util.json_dumps(variables),
-            "doc_id"   : extr.cache(self._extract_docid, path, opname,
-                                    _key=1, _exp=86400, _mem=False) or doc_id,
-        }
-
-        response = extr.request(url, method="POST", headers=headers, data=body)
-        return util.json_loads(response.text)
-
-    def _pagination_graphql(self, opname, fieldname, path, doc_id, variables):
-        extr = self.extractor
-        root = extr.root
-        url = root + "/graphql/query"
-
-        if extr._user:
-            name = extr._user["username"]
-            path = f"/{name}/{path}" if path else ("/" + name)
-
-        fb_lsd, fb_dtsg = self._extract_fb_tokens(path)
-        doc_id = extr.cache(self._extract_docid, path, opname,
-                            _key=1, _exp=86400, _mem=False) or doc_id
-
-        headers = {
-            "Accept": "*/*",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-FB-Friendly-Name": opname,
-            "X-CSRFToken": None,
-            "X-IG-App-ID": "936619743392459",
-            "X-IG-Max-Touch-Points": "0",
-            "X-BLOKS-VERSION-ID": "62077fc559de123afe03ebeb18194a88"
-                                  "ba5d4e6874d9a07873752f3792adb8a0",
-            "X-Root-Field-Name": fieldname,
-            "X-FB-LSD": fb_lsd,
-            "X-ASBD-ID": "359341",
-            "Origin" : root,
-            "Alt-Used": root[8:],
-            "Connection": "keep-alive",
-            "Referer": f"{root}{path}/",
-            "Cookie": None,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-        }
-        body = {
-            "av"    : "17841415137994167",
-            "__d"   : "www",
-            "__user": "0",
-            "__a"   : "1",
-            "__req" : "0",
-            "__hs"  : "20706.HYP%3Ainstagram_web_pkg.2.1...0",
-            "dpr"   : "1",
-            "__ccg" : "EXCELLENT",
-            "__rev" : "1047183312",
-            #  "__s"   : "...",
-            "__hsi" : "7683797502103314933",
-            #  "__dyn" : "...",
-            #  "__csr" : "...",
-            #  "__hsdp": "...",
-            #  "__hblp": "...",
-            #  "__sjsp": "...",
-            "__comet_req": "7",
-            "fb_dtsg"  : fb_dtsg,
-            "jazoest"  : "26461",
-            "lsd"      : fb_lsd,
-            #  "__spin_r" : "1047183312",
-            #  "__spin_b" : "trunk",
-            #  "__spin_t" : "1789023518",
-            "__crn"    : "comet.igweb.PolarisProfilePostsTabRoute",
-            "fb_api_caller_class": "RelayModern",
-            "fb_api_req_friendly_name": opname,
-            "server_timestamps": "true",
-            "variables": None,
-            "doc_id"   : doc_id,
-        }
-
+        headers, body = self._prepare_graphql(opname, fieldname)
         variables["after"] = extr._init_cursor()
         while True:
             headers["X-CSRFToken"] = extr.csrf_token
             body["variables"] = util.json_dumps(variables)
+
+            extr.log.debug("%s (%s)", opname, body["doc_id"])
+            extr.log.debug(body["variables"])
             response = extr.request(
                 url, method="POST", headers=headers, data=body)
 
             try:
                 data = util.json_loads(response.text)["data"][fieldname]
-            except (ValueError, KeyError):
-                break
+            except (ValueError, KeyError) as exc:
+                extr.status |= 1
+                extr.log.debug("Server response:\n%s", response.text)
+                extr.log.error("Failed to load API data (%s: %s)",
+                               exc.__class__.__name__, exc)
+                raise
 
             if "edges" not in data:
                 for value in data.values():
-                    if isinstance(value, dict) and "edges" in value:
+                    if value.__class__ is dict and "edges" in value:
                         data = value
                         break
                 else:
@@ -2104,41 +1882,6 @@ _REST_GATED_RE = text.re(r"redirect to (?:home|login) page").search
 # cache flush. Override per-run with '-o rest-gate-ttl=<seconds>' (0 disables
 # expiry entirely, so prefer a small number over 0 when testing).
 _REST_GATE_TTL = 86400
-
-# --- immich patch: the query that replaced /v1/users/<id>/info/ ---
-#
-# Instagram began throttling the REST profile endpoint between 19 and 23 Sep
-# 2026. Measured: 11 of 11 calls succeeded up to the 19th, then 27 x 429 against
-# 12 x 200 — while its SIBLING /v1/media/<id>/info/ answered 11 of 11 on the
-# same session, IP and minute, and two different accounts behaved identically.
-# So it is the endpoint that is throttled, not the account, session, IP or UA.
-#
-# The web app does not use it either. A profile page loads
-# PolarisProfilePageContentQuery, whose root field fetch__XDTUserDict returns a
-# 65-key XDTUserDict carrying biography, biography_with_entities, bio_links,
-# follower_count, following_count, media_count, category and pronouns. Fewer
-# keys than the 220-key REST profile, but the count fields keep their REST
-# names, so json-sidecar.service reads this shape unchanged.
-#
-# Verified against a live session: HTTP 200 with a populated biography in the
-# same minute that /v1/users/<id>/info/ returned 429 for the same uid.
-#
-# The id is discovered per run by _extract_docid — the same mechanism the post
-# query uses — so this pin is only the fallback for when discovery fails.
-_PROFILE_OPNAME = "PolarisProfilePageContentQuery"
-_PROFILE_FIELD = "fetch__XDTUserDict"
-_PROFILE_DOC_ID = "28036671149327607"
-
-# Relay provider flags the query declares. They must be present or the request
-# is rejected; their VALUES only select experiments we do not want, so all off.
-_PROFILE_PROVIDERS = {
-    "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": False,
-    "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": False,
-    "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": False,
-    "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
-    "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider": False,
-}
-
 
 def _rest_media_ungated():
     """Cache seed for the REST media/info gate: not known to be gated.

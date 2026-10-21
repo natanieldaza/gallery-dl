@@ -117,10 +117,10 @@ def unique_sequence(iterable):
 
 def contains(values, elements, separator=" "):
     """Returns True if at least one of 'elements' is contained in 'values'"""
-    if isinstance(values, str) and (separator or separator is None):
+    if values.__class__ is str and (separator or separator is None):
         values = values.split(separator)
 
-    if not isinstance(elements, (tuple, list)):
+    if elements.__class__ is not list and elements.__class__ is not tuple:
         return elements in values
 
     for e in elements:
@@ -159,7 +159,7 @@ def md5(s):
     """Generate MD5 hexdigest of 's'"""
     if not s:
         s = b""
-    elif isinstance(s, str):
+    elif s.__class__ is str:
         s = s.encode()
     return hashlib.md5(s).hexdigest()
 
@@ -168,7 +168,7 @@ def sha1(s):
     """Generate SHA1 hexdigest of 's'"""
     if not s:
         s = b""
-    elif isinstance(s, str):
+    elif s.__class__ is str:
         s = s.encode()
     return hashlib.sha1(s).hexdigest()
 
@@ -210,7 +210,7 @@ def format_bytes_binary(value):
 def combine_dict(a, b):
     """Recursively combine the contents of 'b' into 'a'"""
     for key, value in b.items():
-        if key in a and isinstance(value, dict) and isinstance(a[key], dict):
+        if key in a and value.__class__ is dict and a[key].__class__ is dict:
             combine_dict(a[key], value)
         else:
             a[key] = value
@@ -220,7 +220,7 @@ def combine_dict(a, b):
 def transform_dict(a, func):
     """Recursively apply 'func' to all values in 'a'"""
     for key, value in a.items():
-        if isinstance(value, dict):
+        if value.__class__ is dict:
             transform_dict(value, func)
         else:
             a[key] = func(value)
@@ -270,9 +270,7 @@ def to_string(value):
 
 
 def json_default(obj):
-    if isinstance(obj, CustomNone):
-        return None
-    return str(obj)
+    return None if obj is NONE else str(obj)
 
 
 json_loads = json._default_decoder.decode
@@ -413,10 +411,6 @@ def expand_path(path):
     """Expand environment variables and tildes (~)"""
     if not path:
         return path
-    if not isinstance(path, str):
-        import logging
-        logging.getLogger("gallery-dl").error(
-            "Non-string paths are no longer supported.")
     return os.path.expandvars(os.path.expanduser(path))
 
 
@@ -436,7 +430,7 @@ def remove_directory(path):
 
 def set_mtime(path, mtime):
     try:
-        if isinstance(mtime, str):
+        if mtime.__class__ is str:
             mtime = mktime_tz(parsedate_tz(mtime))
         os.utime(path, (time.time(), mtime))
     except Exception:
@@ -833,7 +827,7 @@ def compile_expression_raw(expr, name="<expr>", globals=None):
 def compile_expression_defaultdict(expr, name="<expr>", globals=None):
     global GLOBALS_DEFAULT
 
-    if isinstance(__builtins__, dict):
+    if __builtins__.__class__ is dict:
         # cpython
         GLOBALS_DEFAULT = collections.defaultdict(lambda n=NONE: n, GLOBALS)
     else:
@@ -872,7 +866,7 @@ compile_expression = compile_expression_tryexcept
 
 
 def compile_filter(expr, name="<filter>", globals=None):
-    if not isinstance(expr, str):
+    if expr.__class__ is not str:
         expr = f"({') and ('.join(expr)})"
     return compile_expression(expr, name, globals)
 
@@ -900,7 +894,7 @@ def build_selection_func(value, min=0.0, conv=float):
     if not value:
         return (lambda: min) if min else None
 
-    if isinstance(value, str):
+    if value.__class__ is str:
         lower, _, upper = value.partition("-")
     else:
         try:
@@ -929,7 +923,7 @@ build_duration_func = build_selection_func
 def build_duration_func_ex(value):
     if not value:
         return None
-    if not isinstance(value, str) or "=" not in value:
+    if value.__class__ is not str or "=" not in value:
         value = build_duration_func(value)
         return lambda _: value()
 
@@ -962,7 +956,7 @@ def build_extractor_filter(categories, negate=True, special=None):
     """Build a function that takes an Extractor class as argument
     and returns True if that class is allowed by 'categories'
     """
-    if isinstance(categories, str):
+    if categories.__class__ is str:
         categories = categories.split(",")
 
     catset = set()  # set of categories / basecategories
@@ -1024,11 +1018,11 @@ def build_proxy_map(proxies, log=None):
     if not proxies:
         return None
 
-    if isinstance(proxies, str):
+    if proxies.__class__ is str:
         if "://" not in proxies:
             proxies = "http://" + proxies.lstrip("/")
         proxies = {"http": proxies, "https": proxies}
-    elif isinstance(proxies, dict):
+    elif proxies.__class__ is dict:
         for scheme, proxy in proxies.items():
             if "://" not in proxy:
                 proxies[scheme] = "http://" + proxy.lstrip("/")
@@ -1090,18 +1084,18 @@ def predicate_tags(blacklist, negate=False):
         if not (tags := kwdict.get("tags") or kwdict.get("tag_string")):
             return True
 
-        if isinstance(tags, str):
+        if tags.__class__ is str:
             taglist = tags.split(", ")
             if len(taglist) < len(tags) / 16:
                 taglist = tags.split(" ")
             tags = taglist
-        elif isinstance(tags[0], dict):
+        elif tags[0].__class__ is dict:
             # pixiv "tags": "original"
             tags = [
                 tag
                 for tagdict in tags
                 for tag in tagdict.values()
-                if isinstance(tag, str)
+                if tag.__class__ is str
             ]
 
         for tag in tags:
@@ -1117,7 +1111,7 @@ def predicate_tags(blacklist, negate=False):
 
 
 def predicate_tags_parse(blacklist):
-    if isinstance(blacklist, str):
+    if blacklist.__class__ is str:
         try:
             with open(expand_path(blacklist)) as fp:
                 blacklist = fp.readlines()
@@ -1257,9 +1251,9 @@ def predicate_range_parse(rangespec):
     """
     ranges = []
 
-    if isinstance(rangespec, str):
+    if rangespec.__class__ is str:
         rangespec = rangespec.split(",")
-    elif isinstance(rangespec, int):
+    elif rangespec.__class__ is int:
         rangespec = (str(rangespec),)
 
     for group in rangespec:

@@ -164,10 +164,10 @@ class ImxtoGalleryExtractor(ImagehostImageExtractor):
 
 
 class ImxtwImageExtractor(ImagehostImageExtractor):
-    """Extractor for single images from imx.tw"""
+    """Extractor for single images from imx.bz"""
     category = "imxtw"
-    pattern = (r"(?:https?://)?(?:www\.)?(imx\.tw/(\w+))")
-    example = "https://imx.tw/ID"
+    pattern = (r"(?:https?://)?(?:www\.)?(imx\.(?:bz|tw)/(\w+))")
+    example = "https://imx.bz/ID"
     _params = "complex"
 
     def get_info(self, page):

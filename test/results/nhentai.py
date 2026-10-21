@@ -10,7 +10,6 @@ from gallery_dl.extractor import nhentai
 __tests__ = (
 {
     "#url"     : "https://nhentai.net/g/147850/",
-    "#category": ("", "nhentai", "gallery"),
     "#class"   : nhentai.NhentaiGalleryExtractor,
     "#pattern" : r"https://i[1-4]\.nhentai\.net/galleries/867789/\d+\.jpg",
     "#count"   : 16,
@@ -51,54 +50,46 @@ __tests__ = (
 
 {
     "#url"     : "https://nhentai.net/tag/sole-female/",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
     "#pattern" : nhentai.NhentaiGalleryExtractor.pattern,
     "#range"   : "1-30",
     "#count"   : 30,
 
-    "gallery_id": int,
+    "id": int,
 },
 
 {
     "#url"     : "https://nhentai.net/artist/itou-life/",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/group/itou-life/",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/parody/touhou-project/",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/character/patchouli-knowledge/popular",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/category/doujinshi/popular-today",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/language/english/popular-week",
-    "#category": ("", "nhentai", "tag"),
     "#class"   : nhentai.NhentaiTagExtractor,
 },
 
 {
     "#url"     : "https://nhentai.net/search/?q=touhou",
-    "#category": ("", "nhentai", "search"),
     "#class"   : nhentai.NhentaiSearchExtractor,
     "#pattern" : nhentai.NhentaiGalleryExtractor.pattern,
     "#range"   : "1-30",
@@ -107,7 +98,6 @@ __tests__ = (
 
 {
     "#url"     : "https://nhentai.net/favorites/",
-    "#category": ("", "nhentai", "favorite"),
     "#class"   : nhentai.NhentaiFavoriteExtractor,
 },
 

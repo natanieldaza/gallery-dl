@@ -16,7 +16,7 @@ from . import util, exception
 
 
 def parse(spec):
-    if isinstance(spec, str):
+    if spec.__class__ is str:
         type, _, args = spec.partition(" ")
         before, after = ACTIONS[type](args)
         return before if after is None else after
@@ -34,7 +34,7 @@ def parse(spec):
 
 
 def parse_logging(actionspec):
-    if isinstance(actionspec, dict):
+    if actionspec.__class__ is dict:
         actionspec = actionspec.items()
 
     actions = {}
@@ -51,7 +51,7 @@ def parse_logging(actionspec):
         level, _, pattern = event.partition(":")
         search = util.re(pattern).search if pattern else util.true
 
-        if isinstance(spec, str):
+        if spec.__class__ is str:
             type, _, args = spec.partition(" ")
             before, after = ACTIONS[type](args)
         else:
@@ -94,7 +94,7 @@ def parse_logging(actionspec):
 def parse_signals(actionspec):
     import signal
 
-    if isinstance(actionspec, dict):
+    if actionspec.__class__ is dict:
         actionspec = actionspec.items()
 
     for signal_name, spec in actionspec:

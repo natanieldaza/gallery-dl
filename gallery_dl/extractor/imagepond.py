@@ -61,8 +61,27 @@ class ImagepondFileExtractor(ImagepondExtractor):
 
         title = text.unescape(extr('property="og:title" content="', '"'))
         type = extr('property="og:type" content="', '"')
+        file_id = response.url.rpartition("/")[2]
 
-        if type == "image":
+        if not type:
+            # 'Content Expired' pages have no metadata,
+            # but their thumbnail URL still redirects to the original file
+            url = self.request_location(f"{self.root}/i/{file_id}/thumb/300")
+
+            name = text.filename_from_url(url)
+            if ("_thumb." in name or text.re(r"thumb_\d+_").match(name) or
+                    not text.re(r"https://media\d*.imagepond.net").match(url)):
+                msg = text.unescape(extr("<title>", "<"))
+                raise self.exc.AbortExtraction(
+                    f"{file_id}: {msg or 'Unable to find media'}")
+
+            file = {
+                "url"  : url,
+                "id"   : file_id,
+                "title": "",
+                "type" : "video" if "/videos/" in url else "image",
+            }
+        elif type == "image":
             file = {
                 "type": "image",
                 "url": extr('property="og:image" content="', '"'),
@@ -86,7 +105,7 @@ class ImagepondFileExtractor(ImagepondExtractor):
             m, _, s = extr('<span>', "</span>").partition(":")
             file["duration"] = text.parse_int(m) * 60 + text.parse_int(s)
 
-        file["id"] = response.url.rpartition("/")[2]
+        file["id"] = file_id
         file["title"] = title
         file["date"] = self.parse_datetime(extr(
             '<span class="hidden sm:inline">', '<'), "%b %d, %Y")

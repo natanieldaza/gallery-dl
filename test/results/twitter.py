@@ -231,6 +231,12 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://x.com/i/history/likes",
+    "#category": ("", "twitter", "likes"),
+    "#class"   : twitter.TwitterLikesExtractor,
+},
+
+{
     "#url"     : "https://twitter.com/supernaturepics/likes",
     "#category": ("", "twitter", "likes"),
     "#class"   : twitter.TwitterLikesExtractor,
@@ -770,6 +776,18 @@ The Washington Post writes, "Three weeks after the toxic train derailment in Ohi
     "quote_id"       : 2098577735610454337,
     "quoted_id"      : 0,
     "tweet_id"       : 2098429080182087924,
+},
+
+{
+    "#url"     : "https://x.com/MyLordBebo/status/2025698661116588160",
+    "#comment" : "'Age-restricted adult content' in quote chain (gh#9822)",
+    "#class"   : twitter.TwitterTweetExtractor,
+    "#auth"    : False,
+    "#options" : {"quoted": True},
+    "#results" : (
+        "https://video.twimg.com/amplify_video/2025698604300578816/vid/avc1/888x500/cnnvdQc8X5mRfr3Z.mp4?tag=21",
+        "https://video.twimg.com/amplify_video/2025696139027111936/vid/avc1/356x640/LRnp6ru2qDCWwYTo.mp4?tag=21",
+    ),
 },
 
 {

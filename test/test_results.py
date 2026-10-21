@@ -95,7 +95,7 @@ class TestExtractorResults(unittest.TestCase):
     def assertLogEqual(self, exp, out):
         level, name, message = out.split(":", 2)
 
-        if isinstance(exp, str):
+        if exp.__class__ is str:
             return self.assertEqual(exp, message, "#log")
 
         self.assertEqual(exp[0].lower(), level.lower(), "#log/level")
@@ -106,10 +106,10 @@ class TestExtractorResults(unittest.TestCase):
             self.assertEqual(exp[2], message, "#log/message")
 
     def assertLogsEqual(self, expected, output):
-        if isinstance(expected, str):
+        if expected.__class__ is str:
             expected = {expected[1:]} if expected[0] == "~" else (expected,)
 
-        if isinstance(expected, set):
+        if expected.__class__ is set:
             self.assertLessEqual(len(expected), len(output), "#log/count")
             for exp in expected:
                 for out in output:
@@ -162,7 +162,7 @@ class TestExtractorResults(unittest.TestCase):
         elif not auth:
             # auth explicitly disabled
             for key in AUTH_KEYS:
-                config.set((), key, None)
+                config.setg(key, None)
 
         if auth and not self._has_auth(extr, auth):
             self._skipped.append((result["#url"], "no auth"))
@@ -173,8 +173,8 @@ class TestExtractorResults(unittest.TestCase):
                 key = key.split(".")
                 config.set(key[:-1], key[-1], value)
         if "#range" in result:
-            config.set((), "file-range" , result["#range"])
-            config.set((), "child-range", result["#range"])
+            config.setg("file-range" , result["#range"])
+            config.setg("child-range", result["#range"])
 
         tjob = ResultJob(extr,
                          content=("#sha1_content" in result),
@@ -182,10 +182,10 @@ class TestExtractorResults(unittest.TestCase):
 
         if "#exception" in result:
             exc = result["#exception"]
-            if isinstance(exc, str):
+            if exc.__class__ is str:
                 exc, _, msg = exc.partition(":")
                 exc = getattr(exception, exc, None)
-            elif isinstance(exc, tuple):
+            elif exc.__class__ is tuple:
                 exc, msg = exc
             else:
                 msg = ""
@@ -247,7 +247,7 @@ class TestExtractorResults(unittest.TestCase):
         if "#sha1_content" in result:
             expected = result["#sha1_content"]
             digest = tjob.content_hash.hexdigest()
-            if isinstance(expected, str):
+            if expected.__class__ is str:
                 self.assertEqual(expected, digest, msg="#sha1_content")
             else:  # iterable
                 self.assertIn(digest, expected, msg="#sha1_content")
@@ -261,12 +261,12 @@ class TestExtractorResults(unittest.TestCase):
         if "#count" in result:
             count = result["#count"]
             len_urls = len(tjob.url_list)
-            if isinstance(count, str):
+            if count.__class__ is str:
                 self.assertRegex(
                     count, r"^ *(==|!=|<|<=|>|>=) *\d+ *$", msg="#count")
                 expr = f"{len_urls} {count}"
                 self.assertTrue(eval(expr), msg=expr)
-            elif isinstance(count, range):
+            elif count.__class__ is range:
                 self.assertRange(len_urls, count, msg="#count")
             else:  # assume integer
                 self.assertEqual(len_urls, count, msg="#count")
@@ -274,7 +274,7 @@ class TestExtractorResults(unittest.TestCase):
         if "#pattern" in result:
             self.assertGreater(len(tjob.url_list), 0, msg="#pattern")
             pattern = result["#pattern"]
-            if isinstance(pattern, str):
+            if pattern.__class__ is str:
                 for url in tjob.url_list:
                     self.assertRegex(url, pattern, msg="#pattern")
             else:
@@ -285,7 +285,7 @@ class TestExtractorResults(unittest.TestCase):
 
         if "#results" in result:
             expected = result["#results"]
-            if isinstance(expected, str):
+            if expected.__class__ is str:
                 self.assertTrue(tjob.url_list, msg="#results")
                 self.assertEqual(
                     tjob.url_list[0], expected, msg="#results")
@@ -306,11 +306,11 @@ class TestExtractorResults(unittest.TestCase):
         if auth is True:
             auth = AUTH_KEYS
 
-        if isinstance(auth, str):
+        if auth.__class__ is str:
             return extr.config(auth)
-        if isinstance(auth, set):
+        if auth.__class__ is set:
             return any(self._has_auth(extr, a) for a in auth)
-        if isinstance(auth, (tuple, list)):
+        if auth.__class__ is tuple:
             return all(self._has_auth(extr, k) for k in auth)
 
         self.fail(f"Invalid '#auth' value: {auth!r}")
@@ -347,26 +347,26 @@ class TestExtractorResults(unittest.TestCase):
                 self._test_kwdict_value(value, test, path)
 
     def _test_kwdict_value(self, value, test, path):
-        if isinstance(test, dict):
+        if test.__class__ is dict:
             self._test_kwdict(value, test, path)
-        elif isinstance(test, type):
+        elif test.__class__ is type:
             self.assertIsInstance(value, test, msg=path)
-        elif isinstance(test, range):
+        elif test.__class__ is range:
             self.assertRange(value, test, msg=path)
-        elif isinstance(test, set):
-            if isinstance(value, list):
+        elif test.__class__ is set:
+            if value.__class__ is list:
                 value = tuple(value)
             for item in test:
-                if isinstance(item, type) and isinstance(value, item) or \
+                if item.__class__ is type and value.__class__ is item or \
                         value == item:
                     break
             else:
                 v = type(value) if len(str(value)) > 64 else value
                 self.fail(f"{v!r} not in {test}: {path}")
-        elif isinstance(test, list):
+        elif test.__class__ is list:
             subtest = False
             for idx, item in enumerate(test):
-                if isinstance(item, dict):
+                if item.__class__ is dict:
                     subtest = True
                     subpath = f"{path}[{idx}]"
                     try:
@@ -377,7 +377,7 @@ class TestExtractorResults(unittest.TestCase):
                     self._test_kwdict(obj, item, subpath)
             if not subtest:
                 self.assertEqual(test, value, msg=path)
-        elif isinstance(test, str):
+        elif test.__class__ is str:
             if test.startswith("re:"):
                 self.assertIsInstance(value, str, msg=path)
                 self.assertRegex(value, test[3:], msg=path)
@@ -431,6 +431,8 @@ class TestExtractorResults(unittest.TestCase):
                 else:
                     self.fail(f"Unsupported ISO test '{test}'")
             else:
+                if value.__class__ is str and "\r" in value:
+                    value = value.replace("\r", "")
                 self.assertEqual(test, value, msg=path)
         else:
             self.assertEqual(test, value, msg=path)

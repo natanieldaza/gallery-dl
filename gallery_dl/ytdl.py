@@ -36,7 +36,7 @@ def construct_YoutubeDL(module, obj, user_opts, system_opts=None):
         argv = shlex.split(contents, comments=True)
 
     if cmd := config("cmdline-args"):
-        if isinstance(cmd, str):
+        if cmd.__class__ is str:
             cmd = shlex.split(cmd)
         argv = (argv + cmd) if argv else cmd
 
@@ -98,7 +98,7 @@ def parse_command_line(module, argv):
     if opts.referer is not None:
         std_headers["Referer"] = opts.referer
     if opts.headers:
-        if isinstance(opts.headers, dict):
+        if opts.headers.__class__ is dict:
             std_headers.update(opts.headers)
         else:
             for h in opts.headers:
@@ -189,7 +189,7 @@ def parse_command_line(module, argv):
     if _video_multistreams_set is False and _audio_multistreams_set is False:
         _unused_compat_opt("multistreams")
 
-    if isinstance(opts.outtmpl, dict):
+    if opts.outtmpl.__class__ is dict:
         outtmpl = opts.outtmpl
         outtmpl_default = outtmpl.get("default")
     else:
@@ -206,7 +206,7 @@ def parse_command_line(module, argv):
 
     if ytdlp:
         def metadataparser_actions(f):
-            if isinstance(f, str):
+            if f.__class__ is str:
                 yield module.MetadataFromFieldPP.to_action(f)
             else:
                 REPLACE = module.MetadataParserPP.Actions.REPLACE
@@ -217,7 +217,7 @@ def parse_command_line(module, argv):
                     yield action
 
         parse_metadata = getattr(opts, "parse_metadata", None)
-        if isinstance(parse_metadata, dict):
+        if parse_metadata.__class__ is dict:
             if opts.metafromtitle is not None:
                 if "pre_process" not in parse_metadata:
                     parse_metadata["pre_process"] = []
@@ -575,7 +575,7 @@ def legacy_postprocessors(opts, module, ytdlp, compat_opts):
         })
         if not already_have_thumbnail:
             opts.writethumbnail = True
-            if isinstance(opts.outtmpl, dict):
+            if opts.outtmpl.__class__ is dict:
                 opts.outtmpl["pl_thumbnail"] = ""
     if getattr(opts, "split_chapters", None):
         postprocessors.append({

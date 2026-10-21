@@ -29,7 +29,7 @@ class UgoiraPP(PostProcessor):
 
     def __init__(self, job, options):
         PostProcessor.__init__(self, job)
-        self.args = options.get("ffmpeg-args") or ()
+        self.args = options.get("ffmpeg-args") or ("-pix_fmt", "yuv420p")
         self.twopass = options.get("ffmpeg-twopass", False)
         self.output = options.get("ffmpeg-output", "error")
         self.delete = not options.get("keep-files", False)
@@ -73,7 +73,7 @@ class UgoiraPP(PostProcessor):
             self._process = self._process_concat
             self._finalize = None
         self.extension = "webm" if ext is None else ext
-        self.log.debug("using %s demuxer", mode)
+        self.log.debug("Using '%s' strategy", mode)
 
         rate = options.get("framerate", "auto")
         if rate == "uniform":
@@ -97,7 +97,7 @@ class UgoiraPP(PostProcessor):
             self.prevent_odd = False
 
         self.args_pp = args = []
-        if isinstance(self.output, str):
+        if self.output.__class__ is str:
             args += ("-hide_banner", "-loglevel", self.output)
         if self.prevent_odd:
             args += ("-vf", "crop=iw-mod(iw\\,2):ih-mod(ih\\,2)")
@@ -247,7 +247,7 @@ class UgoiraPP(PostProcessor):
         frames = self._frames
 
         if self.metadata:
-            if isinstance(self.metadata, str):
+            if self.metadata.__class__ is str:
                 metaname = self.metadata
             else:
                 metaname = "animation.json"

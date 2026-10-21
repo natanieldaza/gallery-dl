@@ -497,19 +497,19 @@ class FuraffinitySubmissionsExtractor(FuraffinityExtractor):
 
     def posts(self):
         self.user = None
-        url = self.root + self.groups[0]
-        return self._pagination_submissions(url)
+        return self._pagination_submissions(self.root + self.groups[0])
 
     def _pagination_submissions(self, url):
+        next_new = text.re(r">Next \d+</a>").search
+        next_old = text.re(r">&gt;&gt;&gt; Next \d+ &gt;&gt;").search
+
         while True:
             page = self.request(url).text
 
             for post_id in text.extract_iter(page, 'id="sid-', '"'):
                 yield post_id
 
-            if (pos := page.find(">Next 48</a>")) < 0 and \
-                    (pos := page.find(">&gt;&gt;&gt; Next 48 &gt;&gt;")) < 0:
-                return
-
-            path = text.rextr(page, 'href="', '"', pos)
+            if not (m := next_new(page)) and not (m := next_old(page)):
+                break
+            path = text.rextr(page, 'href="', '"', m.start())
             url = self.root + text.unescape(path)

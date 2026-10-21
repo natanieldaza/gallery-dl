@@ -461,7 +461,9 @@ SUBCATEGORY_MAP = {
         "post": "Posts Images",
     },
     "pornhub": {
-        "gifs": "",
+        "asset": ("Avatars", "Banners"),
+        "gif"  : "GIFs",
+        "gifs" : "User GIFs",
     },
     "raddle": {
         "usersubmissions": "User Profiles",
@@ -496,6 +498,10 @@ SUBCATEGORY_MAP = {
     "snapchat": {
         "story": "",
         "spotlight": "",
+    },
+    "steamcommunity": {
+        "game": "Game Media",
+        "user": "User Media",
     },
     "steamgriddb": {
         "asset": "Individual Assets",
@@ -609,6 +615,12 @@ URL_MAP = {
     "joyreactor": (
         "https://joyreactor.com/",
         "https://joyreactor.cc/",
+    ),
+    "kagane": (
+        "https://kagane.si/",
+        "https://kagane.cx/",
+        "https://kagane.moe/",
+        "https://kagane.net/",
     ),
     "konachan": (
         "https://konachan.com/",
@@ -758,7 +770,7 @@ def subcategory_text(bc, c, sc):
         scm = SUBCATEGORY_MAP[c]
         if sc in scm:
             txt = scm[sc]
-            if not isinstance(txt, str):
+            if txt.__class__ is not str:
                 txt = " | ".join(txt)
             return txt
 
@@ -766,7 +778,7 @@ def subcategory_text(bc, c, sc):
         scm = SUBCATEGORY_MAP[bc]
         if sc in scm:
             txt = scm[sc]
-            if not isinstance(txt, str):
+            if txt.__class__ is not str:
                 txt = " | ".join(txt)
             return txt
 
@@ -920,7 +932,7 @@ def generate_row(category, extractors, domain):
     row.append(f"    <td>{category_text(category)}</td>")
 
     # URLs
-    if isinstance(domain, str):
+    if domain.__class__ is str:
         row.append(f"    <td>{domain}</td>")
     else:
         row.append(f"    <td>{'<br>'.join(domain)}</td>")

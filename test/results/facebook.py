@@ -170,6 +170,11 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://www.facebook.com/photo?fbid=10152716011076729&set=a.10152716010956729&setextract",
+    "#class"   : facebook.FacebookSetExtractor,
+},
+
+{
     "#url"     : "https://www.facebook.com/media/set/?set=a.127331797422780&type=3",
     "#comment" : "pfbid user ID; 'This content isn't available right now' profile",
     "#class"   : facebook.FacebookSetExtractor,

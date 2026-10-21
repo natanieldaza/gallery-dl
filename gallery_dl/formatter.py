@@ -460,7 +460,7 @@ def _parse_join(format_spec, default):
     fmt = _build_format_func(format_spec, default)
 
     def apply_join(obj):
-        if isinstance(obj, str):
+        if obj.__class__ is str:
             return fmt(obj)
         return fmt(join(obj))
     return apply_join
@@ -472,12 +472,12 @@ def _parse_map(format_spec, default):
     fmt = _build_format_func(format_spec, default)
 
     def map_(obj):
-        if not obj or isinstance(obj, str):
+        if not obj or obj.__class__ is str:
             return fmt(obj)
 
         results = []
         for item in obj:
-            if isinstance(item, dict):
+            if item.__class__ is dict:
                 value = item.get(key, ...)
                 results.append(default if value is ... else value)
             else:

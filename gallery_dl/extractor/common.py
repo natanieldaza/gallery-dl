@@ -86,7 +86,7 @@ class Extractor():
 
     @classmethod
     def from_url(cls, url):
-        if isinstance(cls.pattern, str):
+        if cls.pattern.__class__ is str:
             cls.pattern = util.re_compile(cls.pattern)
         match = cls.pattern.match(url)
         return cls(match) if match else None
@@ -335,7 +335,7 @@ class Extractor():
             seconds = float(seconds)
             until = now + seconds
         elif until:
-            if isinstance(until, dt.datetime):
+            if until.__class__ is dt.datetime:
                 # convert to UTC timestamp
                 until = dt.to_ts(until)
             else:
@@ -539,7 +539,7 @@ class Extractor():
         browser = self.config("browser")
         if browser is None:
             browser = self.browser
-        if browser and isinstance(browser, str):
+        if browser and browser.__class__ is str:
             browser, _, platform = browser.lower().partition(":")
 
             if not platform or platform == "auto":
@@ -587,7 +587,7 @@ class Extractor():
             headers["Accept-Encoding"] += ", zstd"
 
         if referer := self.config("referer", self.referer):
-            if isinstance(referer, str):
+            if referer.__class__ is str:
                 headers["Referer"] = referer
             elif self.root:
                 headers["Referer"] = self.root + "/"
@@ -630,7 +630,7 @@ class Extractor():
                                  custom_xff)
 
         if custom_headers := self.config("headers"):
-            if isinstance(custom_headers, str):
+            if custom_headers.__class__ is str:
                 if custom_headers in HEADERS:
                     custom_headers = HEADERS[custom_headers]
                 else:
@@ -640,7 +640,7 @@ class Extractor():
             headers.update(custom_headers)
 
         if custom_ciphers := self.config("ciphers"):
-            if isinstance(custom_ciphers, list):
+            if custom_ciphers.__class__ is list:
                 ssl_ciphers = ":".join(custom_ciphers)
             elif custom_ciphers in CIPHERS:
                 ssl_ciphers = CIPHERS[custom_ciphers]
@@ -648,7 +648,7 @@ class Extractor():
                 ssl_ciphers = custom_ciphers
 
         if source_address := self.config("source-address"):
-            if isinstance(source_address, str):
+            if source_address.__class__ is str:
                 source_address = (source_address, 0)
             else:
                 source_address = (source_address[0], source_address[1])
@@ -677,7 +677,8 @@ class Extractor():
     def _init_cookies(self):
         """Populate the session's cookiejar"""
         if cookies := self.config("cookies"):
-            if select := self.config("cookies-select"):
+            if cookies.__class__ is not str and (
+                    select := self.config("cookies-select")):
                 if select == "rotate":
                     cookies = cookies[self.cookies_index % len(cookies)]
                     Extractor.cookies_index += 1
@@ -686,10 +687,10 @@ class Extractor():
             self.cookies_load(cookies)
 
     def cookies_load(self, cookies_source):
-        if isinstance(cookies_source, dict):
+        if cookies_source.__class__ is dict:
             self.cookies_update_dict(cookies_source, self.cookies_domain)
 
-        elif isinstance(cookies_source, str):
+        elif cookies_source.__class__ is str:
             path = util.expand_path(cookies_source)
             try:
                 with open(path, encoding="utf-8") as fp:
@@ -709,7 +710,7 @@ class Extractor():
                     set_cookie(cookie)
                 self.cookies_file = path
 
-        elif isinstance(cookies_source, (list, tuple)):
+        elif cookies_source.__class__ is list:
             key = tuple(cookies_source)
             cookies = CACHE_COOKIES.get(key)
 
@@ -741,7 +742,7 @@ class Extractor():
         if not export:
             return
 
-        if isinstance(export, str):
+        if export.__class__ is str:
             path = util.expand_path(export)
         else:
             path = self.cookies_file
@@ -761,7 +762,7 @@ class Extractor():
 
     def cookies_update(self, cookies, domain=""):
         """Update the session's cookiejar with 'cookies'"""
-        if isinstance(cookies, dict):
+        if cookies.__class__ is dict:
             self.cookies_update_dict(cookies, domain or self.cookies_domain)
         else:
             set_cookie = self.cookies.set_cookie
@@ -814,6 +815,11 @@ class Extractor():
                         "cookies: %s/%s will expire in less than %s hour%s",
                         cookie.domain.lstrip("."), cookie.name,
                         hours + 1, "s" if hours else "")
+
+            if not cookie.value:
+                self.log.warning("cookies: %s/%s is empty",
+                                 cookie.domain.lstrip("."), cookie.name)
+                continue
 
             names.discard(cookie.name)
             if not names:
@@ -875,7 +881,7 @@ class Extractor():
         """Retrieve and parse 'date-min' and 'date-max' config values"""
         def get(key, default):
             ts = self.config(key, default)
-            if isinstance(ts, str):
+            if ts.__class__ is str:
                 dt_obj = dt.parse_iso(ts)
                 if dt_obj is dt.NONE:
                     self.log.warning("Unable to parse '%s': Invalid ISO 8601 "
@@ -1082,16 +1088,19 @@ class Dispatch():
         pass
 
     def _dispatch_extractors(self, extractor_data, default=(), alt=None):
-        extractors = {
-            data[0].subcategory: data
-            for data in extractor_data
-        }
+        if extractor_data.__class__ is dict:
+            extractors = extractor_data
+        else:
+            extractors = {
+                data[0].subcategory: data
+                for data in extractor_data
+            }
 
         include = self.config("include", default) or ()
         if include == "all":
             include = extractors
         else:
-            if isinstance(include, str):
+            if include.__class__ is str:
                 include = include.replace(" ", "").split(",")
             if alt is not None:
                 for sub, sub_alt, url in alt:
@@ -1134,7 +1143,7 @@ class BaseExtractor(Extractor):
     def update(cls, instances):
         if extra_instances := config.get(("extractor",), cls.basecategory):
             for category, info in extra_instances.items():
-                if isinstance(info, dict) and "root" in info:
+                if info.__class__ is dict and "root" in info:
                     instances[category] = info
 
         pattern_list = []

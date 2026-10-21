@@ -17,11 +17,14 @@ BASE_PATTERN = r"(?:https?://)?(?:web\.)?500px\.com"
 class _500pxExtractor(Extractor):
     """Base class for 500px extractors"""
     category = "500px"
-    directory_fmt = ("{category}", "{uploader[username]}")
-    filename_fmt = "{date:%Y-%m-%d} {title} ({id}).{extension}"
+    directory_fmt = ("{category}", "{user[username]}",
+                     "{group[title]:?//}{group[id]:? (/)/}")
+    filename_fmt = ("{num:?/ />02}{date:%Y-%m-%d} "
+                    "{title:?/ /}({id}).{extension}")
     archive_fmt = "{id}"
     root = "https://500px.com"
     cookies_domain = ".500px.com"
+    _warning = True
 
     def _init(self):
         self.headers = {"x-500px-platform": "Web"}
@@ -40,21 +43,64 @@ class _500pxExtractor(Extractor):
             self.headers[name] = value = util.generate_token(43)
             self.cookies.set(name, value, domain=self.cookies_domain)
 
+        if self._warning:
+            if not self.cookies_check(("x-500px-access-token-prod",)):
+                self.log.warning("no 'x-500px-access-token-prod' cookie set")
+                self.log.warning("image dimensions restricted to 1024px")
+            _500pxExtractor._warning = False
+
     def items(self):
+        seen = set()
+
         for photo in self.photos():
-            if "videoUrl" in photo:
-                url = photo["videoUrl"]
-                photo["type"] = "video"
-            else:
-                url = photo["urls"]["size_4k"]
-                photo["type"] = "photo"
-                photo["date_taken"] = self.parse_datetime_iso(
-                    photo["takenAt"])
-            photo["id_num"] = url.rsplit("/", 2)[1]
-            photo["date"] = self.parse_datetime_iso(photo["uploadedAt"])
-            text.nameext_from_url(url, photo)
-            yield Message.Directory, "", photo
-            yield Message.Url, url, photo
+            type = photo.get("__typename")
+            if type == "PhotoGroup":
+                group = photo
+
+                variables = {
+                    "excludeNsfw": False,
+                    "groupId"    : group["id"],
+                }
+                photos = self.request_graphql("getPhotosByGroupId", variables)
+
+                data = {
+                    "group": group,
+                    "count": len(photos),
+                    "user" : group.pop("uploader"),
+                    "type" : "group",
+                }
+
+                yield Message.Directory, "", data
+                for num, photo in enumerate(photos, 1):
+                    seen.add(photo["id"])
+                    url = photo["urls"]["size_4k"]
+                    photo.update(data)
+                    photo["num"] = num
+                    photo["type"] = "photo"
+                    photo["id_num"] = url.rsplit("/", 2)[1]
+                    photo["date"] = self.parse_datetime_iso(
+                        photo["uploadedAt"])
+                    photo["date_taken"] = self.parse_datetime_iso(
+                        photo["takenAt"])
+                    text.nameext_from_url(url, photo)
+                    yield Message.Url, url, photo
+            elif photo["id"] not in seen:
+                if type == "Video":
+                    url = photo["videoUrl"]
+                    photo["type"] = "video"
+                else:
+                    url = photo["urls"]["size_4k"]
+                    photo["type"] = "photo"
+                    photo["date_taken"] = self.parse_datetime_iso(
+                        photo["takenAt"])
+
+                photo["num"] = 0
+                photo["count"] = 1
+                photo["id_num"] = url.rsplit("/", 2)[1]
+                photo["date"] = self.parse_datetime_iso(photo["uploadedAt"])
+                text.nameext_from_url(url, photo)
+                yield Message.Directory, "", photo
+                yield Message.Url, url, photo
 
     def request_graphql(self, opname, variables):
         url = "https://api-neo.500px.com/graphql"
@@ -73,6 +119,7 @@ class _500pxExtractor(Extractor):
             }},
             "query"        : self.utils("graphql", opname),
         }
+        self.log.debug("%s\n%s", opname, variables)
         return self.request_json(
             url, method="POST", headers=headers, json=body,
         )["data"].popitem()[1]
@@ -81,7 +128,7 @@ class _500pxExtractor(Extractor):
         while True:
             data = self.request_graphql(opname, variables)
 
-            if isinstance(data, list):
+            if data.__class__ is list:
                 yield from data
             else:
                 for edge in data["edges"]:
@@ -139,27 +186,13 @@ class _500pxGalleryExtractor(_500pxExtractor):
 class _500pxGroupExtractor(_500pxExtractor):
     """Extractor for photo groups"""
     subcategory = "group"
-    directory_fmt = ("{category}", "{user[username]}",
-                     "{group[title]} ({group[id]})")
-    filename_fmt = "{num:>02} {date:%Y-%m-%d} {title} ({id}).{extension}"
     pattern = BASE_PATTERN + r"/photo-group/([^/?#]+)"
     example = "https://500px.com/photo-group/1a2B3"
 
     def photos(self):
         self.kwdict["group"] = group = self.request_graphql(
             "getPhotoGroupById", {"id": self.groups[0]})
-        self.kwdict["user"] = group.pop("uploader")
-
-        variables = {
-            "excludeNsfw": False,
-            "groupId"    : group["id"],
-        }
-
-        photos = self.request_graphql("getPhotosByGroupId", variables)
-        self.kwdict["count"] = len(photos)
-        for num, photo in enumerate(photos, 1):
-            photo["num"] = num
-        return photos
+        return (group,)
 
 
 class _500pxPostExtractor(_500pxExtractor):
@@ -175,4 +208,6 @@ class _500pxPostExtractor(_500pxExtractor):
     def photos(self):
         type, id = self.groups
         opname = "getPhotoById" if type == "photo" else "getVideoById"
-        return (self.request_graphql(opname, {"id": id}),)
+        photo = self.request_graphql(opname, {"id": id})
+        photo["user"] = photo.pop("uploader")
+        return (photo,)

@@ -23,7 +23,7 @@ else:
 
 
 def trim(args):
-    return (args.partition(" ") if isinstance(args, str) else args)[0]
+    return (args.partition(" ") if args.__class__ is str else args)[0]
 
 
 class ExecPP(PostProcessor):
@@ -62,7 +62,7 @@ class ExecPP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("after",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: execute for event in events}, options)
 
@@ -70,7 +70,7 @@ class ExecPP(PostProcessor):
             self._archive_register(job)
 
     def _prepare_cmd(self, cmd):
-        if isinstance(cmd, str):
+        if cmd.__class__ is str:
             self._sub = util.re(
                 r"(?i)\{(_directory(?:_unc)?|_filename"
                 r"|_(?:temp)?path(?:_unc)?|)\}").sub

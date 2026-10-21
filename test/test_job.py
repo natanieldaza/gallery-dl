@@ -53,22 +53,22 @@ class TestDownloadJob(TestJob):
         self.assertEqual(func(TestExtractorParent), False)
         self.assertEqual(func(TestExtractorNoop)  , True)
 
-        config.set((), "blacklist", ":test_subcategory")
+        config.setg("blacklist", ":test_subcategory")
         func = tjob._build_extractor_filter()
         self.assertEqual(func(TestExtractor)      , False)
         self.assertEqual(func(TestExtractorParent), True)
         self.assertEqual(func(TestExtractorNoop)  , False)
 
-        config.set((), "whitelist", "test_category:test_subcategory")
+        config.setg("whitelist", "test_category:test_subcategory")
         func = tjob._build_extractor_filter()
         self.assertEqual(func(TestExtractor)      , True)
         self.assertEqual(func(TestExtractorParent), False)
         self.assertEqual(func(TestExtractorNoop)  , False)
 
     def test_opt_init(self):
-        config.set((), "init", True)
-        config.set((), "archive", ":memory:")
-        config.set((), "postprocessors", "directory")
+        config.setg("init", True)
+        config.setg("archive", ":memory:")
+        config.setg("postprocessors", "directory")
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
@@ -79,9 +79,9 @@ class TestDownloadJob(TestJob):
         self.assertTrue(tjob.hooks)
 
     def test_opt_init_false(self):
-        config.set((), "init", False)
-        config.set((), "archive", ":memory:")
-        config.set((), "postprocessors", "directory")
+        config.setg("init", False)
+        config.setg("archive", ":memory:")
+        config.setg("postprocessors", "directory")
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
@@ -92,12 +92,12 @@ class TestDownloadJob(TestJob):
         self.assertFalse(tjob.hooks)
 
     def test_parent_metadata_extractor(self):
-        config.set((), "parent-metadata", True)
+        config.setg("parent-metadata", True)
 
         config.set(("output",), "mode", False)
-        config.set((), "download", False)
+        config.setg("download", False)
 
-        config.set((), "postprocessors", [{
+        config.setg("postprocessors", [{
             "name"  : "metadata/print@init",
             "format": "{num}",
         }])
@@ -165,7 +165,7 @@ user['self']
 """)
 
     def test_opt_init(self):
-        config.set((), "init", True)
+        config.setg("init", True)
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
@@ -215,14 +215,14 @@ https://example.org/3.jpg
 """)
 
     def test_opt_init(self):
-        config.set((), "init", True)
+        config.setg("init", True)
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
         tjob._init()
 
     def test_opt_follow(self):
-        config.set((), "follow", "{user[bio]}")
+        config.setg("follow", "{user[bio]}")
 
         extr = TestExtractor.from_url("test:urls")
         tjob = self.jobclass(extr)
@@ -254,9 +254,9 @@ Directory format (default):
 """)
 
     def test_custom(self):
-        config.set((), "filename", "custom")
-        config.set((), "directory", ("custom",))
-        config.set((), "sleep-request", 321)
+        config.setg("filename", "custom")
+        config.setg("directory", ("custom",))
+        config.setg("sleep-request", 321)
         extr = TestExtractor.from_url("test:")
         extr.request_interval = 123.456
 
@@ -299,7 +299,7 @@ Directory format (default):
 """)
 
     def test_opt_init(self):
-        config.set((), "init", True)
+        config.setg("init", True)
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
@@ -384,12 +384,12 @@ class TestDataJob(TestJob):
         extr = TestExtractor.from_url("test:")
         tjob = self.jobclass(extr, file=io.StringIO())
 
-        config.set((), "sleep-extractor", 123)
+        config.setg("sleep-extractor", 123)
         with patch("time.sleep") as sleep:
             tjob.run()
         sleep.assert_called_once_with(123)
 
-        config.set((), "sleep-extractor", 0)
+        config.setg("sleep-extractor", 0)
         with patch("time.sleep") as sleep:
             tjob.run()
         sleep.assert_not_called()
@@ -456,14 +456,14 @@ class TestDataJob(TestJob):
             self.assertRegex(line, r"""^\[[23],("http[^"]+",)?\{.+\}\]$""")
 
     def test_opt_init(self):
-        config.set((), "init", True)
+        config.setg("init", True)
 
         extr = TestExtractorNoop.from_url("test:noop")
         tjob = self.jobclass(extr)
         tjob._init()
 
     def test_opt_follow(self):
-        config.set((), "follow", "{user[bio]!R}")
+        config.setg("follow", "{user[bio]!R}")
 
         extr = TestExtractor.from_url("test:urls")
         tjob = self.jobclass(extr, file=None)
@@ -478,7 +478,7 @@ class TestDataJob(TestJob):
         ])
 
     def test_opt_follow_list(self):
-        config.set((), "follow", [
+        config.setg("follow", [
             "{foo}", "{user[bio]!R}", "+++ http://bar.baz/{user[id]} +++"])
 
         extr = TestExtractor.from_url("test:urls")

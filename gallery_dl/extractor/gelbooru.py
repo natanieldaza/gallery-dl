@@ -49,7 +49,7 @@ class GelbooruBase():
                 self.log.debug("%s", data)
             return []
 
-        if not isinstance(posts, list):
+        if posts.__class__ is not list:
             return (posts,)
         return posts
 

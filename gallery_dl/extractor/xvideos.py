@@ -99,7 +99,7 @@ class XvideosUserExtractor(XvideosBase, Extractor):
         data = util.json_loads(text.extr(
             page, "xv.conf=", ";</script>"))["data"]
 
-        if not isinstance(data["galleries"], dict):
+        if data["galleries"].__class__ is not dict:
             return
         if "0" in data["galleries"]:
             del data["galleries"]["0"]

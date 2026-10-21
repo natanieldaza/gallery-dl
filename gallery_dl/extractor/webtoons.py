@@ -109,12 +109,12 @@ class WebtoonsEpisodeExtractor(WebtoonsBase, GalleryExtractor):
             quality = {"jpg": False, "jpeg": False, "webp": False}
         elif not quality:
             quality = None
-        elif isinstance(quality, str):
+        elif quality.__class__ is str:
             quality = {"jpg": quality, "jpeg": quality}
-        elif isinstance(quality, int):
+        elif quality.__class__ is int:
             quality = "q" + str(quality)
             quality = {"jpg": quality, "jpeg": quality}
-        elif not isinstance(quality, dict):
+        elif quality.__class__ is not dict:
             quality = None
 
         if self.bgm:
@@ -167,7 +167,7 @@ class WebtoonsEpisodeExtractor(WebtoonsBase, GalleryExtractor):
         }
         paths = self.paths
 
-        if isinstance(self.bgm, str):
+        if self.bgm.__class__ is str:
             remux = ext = self.bgm.lower()
         else:
             ext = "mp4"

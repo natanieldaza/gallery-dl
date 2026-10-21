@@ -38,7 +38,7 @@ class PathFormat():
         try:
             if filename_fmt is None:
                 filename_fmt = extractor.filename_fmt
-            elif isinstance(filename_fmt, dict):
+            elif filename_fmt.__class__ is dict:
                 self.filename_conditions = [
                     (util.compile_filter(expr),
                      formatter.parse(fmt, kwdefault).format_map)
@@ -55,7 +55,7 @@ class PathFormat():
         try:
             if directory_fmt is None:
                 directory_fmt = extractor.directory_fmt
-            elif isinstance(directory_fmt, dict):
+            elif directory_fmt.__class__ is dict:
                 self.directory_conditions = [
                     (util.compile_filter(expr), [
                         formatter.parse(fmt, kwdefault).format_map
@@ -130,7 +130,7 @@ class PathFormat():
             if basedir is None:
                 basedir = self.clean_path(f".{os.sep}gallery-dl{os.sep}")
             elif basedir:
-                if isinstance(basedir, dict):
+                if basedir.__class__ is dict:
                     self.basedirectory_conditions = conds = []
                     for expr, bdir in basedir.items():
                         if not expr:
@@ -368,7 +368,7 @@ class PathFormat():
             self.build_path()
 
         if part_directory is not None:
-            if isinstance(part_directory, list):
+            if part_directory.__class__ is list:
                 for condition, part_directory in part_directory:
                     if condition(self.kwdict):
                         break
@@ -449,7 +449,7 @@ def _build_convertfunc(func, conv):
 def _build_cleanfunc(chars, repl, conv=None):
     if not chars:
         func = util.identity
-    elif isinstance(chars, dict):
+    elif chars.__class__ is dict:
         if 0 not in chars:
             chars = _process_repl_dict(chars)
             chars[0] = None

@@ -33,7 +33,7 @@ class TestPath(unittest.TestCase):
 
         if kwdict:
             pathfmt.set_directory({
-                **(kwdict if isinstance(kwdict, dict) else KWDICT),
+                **(kwdict if kwdict.__class__ is dict else KWDICT),
                 **data,
             })
 
@@ -182,11 +182,11 @@ class TestPathOptions(TestPath):
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname , "file.ext")
 
-        config.set((), "filename", "foo.{foo}")
+        config.setg("filename", "foo.{foo}")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "foo.bar")
 
-        config.set((), "filename", {
+        config.setg("filename", {
             "foo == 'baz'": "foo",
             "id % 2"      : "bar",
             ""            : "baz",
@@ -199,12 +199,12 @@ class TestPathOptions(TestPath):
         self.assertEqual(pfmt.directory    , "./gallery-dl/test/")
         self.assertEqual(pfmt.realdirectory, "./gallery-dl/test/")
 
-        config.set((), "directory", ["{foo}", "bar"])
+        config.setg("directory", ["{foo}", "bar"])
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.directory    , "./gallery-dl/bar/bar/")
         self.assertEqual(pfmt.realdirectory, "./gallery-dl/bar/bar/")
 
-        config.set((), "directory", {
+        config.setg("directory", {
             "foo == 'baz'": ["a", "b", "c"],
             "id % 2"      : ["odd", "{id}"],
             ""            : ["{foo}", "bar"],
@@ -214,11 +214,11 @@ class TestPathOptions(TestPath):
         self.assertEqual(pfmt.realdirectory, "./gallery-dl/odd/123/")
 
     def test_option_basedirectory(self):
-        config.set((), "base-directory", "{foo}")
+        config.setg("base-directory", "{foo}")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.realdirectory, "{foo}/test/")
 
-        config.set((), "base-directory", {
+        config.setg("base-directory", {
             "foo == 'baz'": "bar",
             "id % 2"      : "./odd",
             ""            : "./default",
@@ -227,17 +227,17 @@ class TestPathOptions(TestPath):
         self.assertEqual(pfmt.realdirectory, "./odd/test/")
 
     def test_option_keywordsdefault(self):
-        config.set((), "directory", ["{baz}"])
-        config.set((), "base-directory", "")
+        config.setg("directory", ["{baz}"])
+        config.setg("base-directory", "")
 
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.realdirectory, "None/")
 
-        config.set((), "keywords-default", "ND")
+        config.setg("keywords-default", "ND")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.realdirectory, "ND/")
 
-        config.set((), "keywords-default", "")
+        config.setg("keywords-default", "")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.realdirectory, "")
 
@@ -270,7 +270,7 @@ class TestPathOptions(TestPath):
             "ping"  : "png",
             "jiff"  : "gif",
         }
-        config.set((), "extension-map", extmap)
+        config.setg("extension-map", extmap)
 
         kwdict = KWDICT.copy()
         pfmt = self._pfmt()
@@ -295,36 +295,36 @@ class TestPathOptions(TestPath):
             self.assertNotEqual(kwdict["extension"], repl)
 
     def test_option_pathrestrict(self):
-        config.set((), "filename", "{name}.{ext}")
+        config.setg("filename", "{name}.{ext}")
 
-        config.set((), "path-restrict", "unix")
+        config.setg("path-restrict", "unix")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-テスト-'&>-_:~.txt", "unix")
 
-        config.set((), "path-restrict", "windows")
+        config.setg("path-restrict", "windows")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-テスト-'&_-__~.txt", "windows")
 
-        config.set((), "path-restrict", "windows+")
+        config.setg("path-restrict", "windows+")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-テスト-'&＞-⧸：~.txt", "windows+")
 
-        config.set((), "path-restrict", "ascii")
+        config.setg("path-restrict", "ascii")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test____________.txt", "ascii")
 
-        config.set((), "path-restrict", "ascii+")
+        config.setg("path-restrict", "ascii+")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-___-'&_-__~.txt", "ascii+")
 
     def test_option_pathrestrict_custom(self):
-        config.set((), "filename", "{name}.{ext}")
+        config.setg("filename", "{name}.{ext}")
 
-        config.set((), "path-restrict", "ts-")
+        config.setg("path-restrict", "ts-")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "_e___テスト_'&>_/:~._x_", "custom str")
 
-        config.set((), "path-restrict", {
+        config.setg("path-restrict", {
             "t": "A",
             "s": "B",
             "-": "###",
@@ -333,7 +333,7 @@ class TestPathOptions(TestPath):
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "AeBA###テスト###'&>###|:~.AxA", "custom dict")
 
-        config.set((), "path-restrict", {
+        config.setg("path-restrict", {
             "a-z": "x",
             "テ": "te",
             "ス": "su",
@@ -343,53 +343,53 @@ class TestPathOptions(TestPath):
         self.assertEqual(fname, "xxxx-tesuto-'&>-/:~.xxx", "custom dict range")
 
     def test_option_pathreplace(self):
-        config.set((), "filename", "{name}.{ext}")
+        config.setg("filename", "{name}.{ext}")
 
-        config.set((), "path-restrict", "unix")
-        config.set((), "path-replace", "&")
+        config.setg("path-restrict", "unix")
+        config.setg("path-replace", "&")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-テスト-'&>-&:~.txt", "&")
 
-        config.set((), "path-restrict", "windows")
-        config.set((), "path-replace", "***")
+        config.setg("path-restrict", "windows")
+        config.setg("path-replace", "***")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "test-テスト-'&***-******~.txt", "***")
 
     def test_option_pathremove(self):
-        config.set((), "filename", "{name}.{ext}")
+        config.setg("filename", "{name}.{ext}")
 
-        config.set((), "path-remove", "-&/")
+        config.setg("path-remove", "-&/")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "testテスト'>_:~.txt")
 
-        config.set((), "path-remove", "a-z0-9")
+        config.setg("path-remove", "a-z0-9")
         fname = self._pfmt().build_filename(KWDICT)
         self.assertEqual(fname, "-テスト-'&>-_:~.")
 
     def test_option_pathstrip(self):
-        config.set((), "directory", [" . {name}.{ext} . "])
-        config.set((), "base-directory", "")
-        config.set((), "path-restrict", "unix")
+        config.setg("directory", [" . {name}.{ext} . "])
+        config.setg("base-directory", "")
+        config.setg("path-restrict", "unix")
 
-        config.set((), "path-strip", "unix")
+        config.setg("path-strip", "unix")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(
             pfmt.realdirectory, ". test-テスト-'&>-_:~.txt ./", "unix")
 
-        config.set((), "path-strip", "windows")
+        config.setg("path-strip", "windows")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(
             pfmt.realdirectory, ". test-テスト-'&>-_:~.txt/", "windows")
 
-        config.set((), "path-strip", "txt")
+        config.setg("path-strip", "txt")
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(
             pfmt.realdirectory, ". test-テスト-'&>-_:~.txt ./", "custom")
 
     def test_option_pathsub(self):
-        config.set((), "directory", ["{foo}", "0{id}45", "0{id}"])
-        config.set((), "base-directory", "")
-        config.set((), "path-sub", {"bar": "baz", "0123": "999"})
+        config.setg("directory", ["{foo}", "0{id}45", "0{id}"])
+        config.setg("base-directory", "")
+        config.setg("path-sub", {"bar": "baz", "0123": "999"})
 
         pfmt = self._pfmt(kwdict=True)
         self.assertEqual(pfmt.realdirectory, "baz/012345/999/")

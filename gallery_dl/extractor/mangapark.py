@@ -155,7 +155,7 @@ class MangaparkMangaExtractor(MangaparkBase, Extractor):
         return chapters
 
     def _select_source(self, source):
-        if isinstance(source, int):
+        if source.__class__ is int:
             return source
 
         group, _, lang = source.partition(":")

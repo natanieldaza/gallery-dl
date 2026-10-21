@@ -436,7 +436,7 @@ class MangadexAPI():
             params = {}
 
         lang = self.extractor.config("lang")
-        if isinstance(lang, str) and "," in lang:
+        if lang.__class__ is str and "," in lang:
             lang = lang.split(",")
         params["translatedLanguage[]"] = lang
         params["includes[]"] = ("scanlation_group", "user")
@@ -454,7 +454,7 @@ class MangadexAPI():
             params = {}
 
         lang = self.extractor.config("lang")
-        if isinstance(lang, str) and "," in lang:
+        if lang.__class__ is str and "," in lang:
             lang = lang.split(",")
         params["locales[]"] = lang
         params["contentRating"] = None
@@ -470,7 +470,7 @@ class MangadexAPI():
             ratings = config("ratings")
             if ratings is None:
                 ratings = ("safe", "suggestive", "erotica", "pornographic")
-            elif isinstance(ratings, str):
+            elif ratings.__class__ is str:
                 ratings = ratings.split(",")
             params["contentRating[]"] = ratings
         params["offset"] = 0

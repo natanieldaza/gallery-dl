@@ -470,7 +470,7 @@ class FacebookSetExtractor(FacebookExtractor):
         r"/(?:(?:media/set|photo)/?\?(?:[^&#]+&)*set=([^&#]+)"
         r"[^/?#]*(?<!&setextract)$"  # set_id
         r"|([^/?#]+/posts/[^?#]+)"   # path aka '/USER/posts/SLUG/ID'
-        r"|photo/\?(?:[^&#]+&)*fbid=([^/?&#]+)&set=([^/?&#]+)&setextract"
+        r"|photo/?\?(?:[^&#]+&)*fbid=([^/?&#]+)&set=([^/?&#]+)&setextract"
         r"|(?:groups/)?(?:[^/?#]+/)?(?:permalink|posts)(?:\.php)?"
         r"(?:/(\d+)|\?\w+=([^/?#]+))"
         r"|events/[^/?#]+/\??post_id=(\d+))"

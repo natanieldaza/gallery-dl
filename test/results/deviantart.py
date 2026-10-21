@@ -1003,10 +1003,24 @@ __tests__ = (
 
 {
     "#url"     : "https://fav.me/ddijrpu",
-    "#comment" : "fav.me (#3558)",
-    "#category": ("", "deviantart", "deviation"),
+    "#comment" : "fav.me base36 ID (gh#3558)",
     "#class"   : deviantart.DeviantartDeviationExtractor,
     "#count"   : 1,
+},
+
+{
+    "#url"     : "https://fav.me/797268217",
+    "#comment" : "fav.me numeric ID (#495)",
+    "#class"   : deviantart.DeviantartDeviationExtractor,
+    "#count"   : 1,
+
+    "date"        : "dt:2019-05-11 16:53:01",
+    "deviationid" : "9C2C6939-5564-5443-8C68-8BBF039F5DD5",
+    "filename"    : "pizza_warmer_by_chiakiro_dd6o83d",
+    "index"       : 797268217,
+    "index_base36": "d6o83d",
+    "title"       : "Pizza warmer",
+    "username"    : "Chiakiro",
 },
 
 {

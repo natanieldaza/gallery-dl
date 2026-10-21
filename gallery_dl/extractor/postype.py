@@ -25,13 +25,13 @@ class PostypeExtractor(Extractor):
     def items(self):
         for post in self.posts():
             post = self._prepare(post)
-            images = self._extract_images(post)
-            post["count"] = len(images)
+            files = self._extract_files(post)
+            post["count"] = len(files)
 
             yield Message.Directory, "", post
-            for post["num"], image in enumerate(images, 1):
-                post.update(image)
-                url = image["url"]
+            for post["num"], file in enumerate(files, 1):
+                post.update(file)
+                url = file["url"]
                 yield Message.Url, url, text.nameext_from_url(url, post)
 
     def request_api(self, endpoint, params=None):
@@ -53,34 +53,44 @@ class PostypeExtractor(Extractor):
 
         return post
 
-    def _extract_images(self, post):
-        """Extract image URLs from post HTML content"""
+    def _extract_files(self, post):
+        """Extract file URLs from post HTML content"""
         data = self.request_api("/v1/post/content/" + str(post["post_id"]))
         html = data["data"]["html"]
 
-        images = []
+        files = []
         seen = set()
-        pos = 0
 
-        while True:
-            pos = html.find('data-full-path="', pos) + 16
-            if pos < 16:
-                break
+        for ele, dl in text.re(
+            r'<([^>]+(?:data-full-path=|class="inner file-downloa(d))[^>]+)>'
+        ).findall(html):
+            if dl:
+                url = text.unescape(text.extr(ele, 'href="', '"'))
+                base, _, query = url.partition("?")
+                if base in seen:
+                    continue
+                seen.add(base)
 
-            url = text.unescape(
-                html[pos:html.find('"', pos)]).partition("?")[0]
-            if url in seen:
-                continue
-            seen.add(url)
+                if name := text.parse_query(query).get("filename"):
+                    files.append(text.nameext_from_name(name, {"url": url}))
+                else:
+                    files.append(text.nameext_from_url(url, {"url": url}))
+            else:
+                url = text.unescape(text.extr(
+                    ele, 'data-full-path="', '"').partition("?")[0])
+                if url in seen:
+                    continue
+                seen.add(url)
 
-            ctx = text.rextr(html, "<", ">", pos)
-            images.append({
-                "url"   : url,
-                "width" : text.parse_int(text.extr(ctx, 'data-width="', '"')),
-                "height": text.parse_int(text.extr(ctx, 'data-height="', '"')),
-            })
+                files.append(text.nameext_from_url(url, {
+                    "url"   : url,
+                    "width" : text.parse_int(text.extr(
+                        ele, 'data-width="', '"')),
+                    "height": text.parse_int(text.extr(
+                        ele, 'data-height="', '"')),
+                }))
 
-        return images
+        return files
 
 
 class PostypePostExtractor(PostypeExtractor):

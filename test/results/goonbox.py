@@ -188,6 +188,40 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://goonbox.cr/u/unyth",
+    "#class"   : goonbox.GoonboxUserExtractor,
+    "#pattern" : r"https://simp\d\.cuckcapital\.cr/(?:images\d*/)?[^/]+$",
+    "#count"   : 69,
+
+    "count"          : 69,
+    "num"            : range(1, 69),
+    "created_at"     : "iso:dt",
+    "date"           : "type:datetime",
+    "encoded_id"     : str,
+    "original_url"   : str,
+    "user"           : {
+        "username"    : "unyth",
+        "display_name": "Unyth",
+    },
+},
+
+{
+    "#url"     : "https://goonbox.cr/u/emcixnn",
+    "#comment" : "includes album images",
+    "#class"   : goonbox.GoonboxUserExtractor,
+    "#results" : (
+        "https://simp6.cuckcapital.cr/images4/fd9e77ea-682a-468c-a837-f467acff6efc.jpg",
+        "https://simp6.cuckcapital.cr/images4/936f6756-552c-4443-9569-ea6fbbb856f2.jpg",
+    ),
+
+    "count"          : 2,
+    "user"           : {
+        "username"    : "emcixnn",
+        "display_name": None,
+    },
+},
+
+{
     "#url"     : "https://goonbox.cr/img/TvSaUIsQ.thGmYmw",
     "#comment" : "legacy non-album image",
     "#class"   : goonbox.GoonboxImageExtractor,

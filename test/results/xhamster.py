@@ -17,7 +17,6 @@ __tests__ = (
 
     "comments": int,
     "count"   : int,
-    "favorite": bool,
     "id"      : int,
     "num"     : int,
     "height"  : int,
@@ -28,9 +27,7 @@ __tests__ = (
     "gallery" : {
         "date"       : "dt:2022-02-02 06:30:09",
         "description": "Alina Henessy loves to wash her car, and we love seeing every inch of her gorgeous body. More at DigitalDesire.com",
-        "dislikes"   : int,
         "id"         : 15860946,
-        "likes"      : int,
         "tags"       : [
             "Babe",
             "Public Nudity",

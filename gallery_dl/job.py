@@ -38,7 +38,7 @@ class Job():
     _logger_adapter = output.LoggerAdapter
 
     def __init__(self, extr, parent=None):
-        if isinstance(extr, str):
+        if extr.__class__ is str:
             extr = extractor.find(extr)
         if not extr:
             raise exception.NoExtractorError()
@@ -50,14 +50,13 @@ class Job():
         self.kwdict_eval = False
 
         if cfgpath := self._build_config_path(parent):
-            if isinstance(cfgpath, list):
+            if cfgpath.__class__ is list:
                 extr.config = extr._config_shared
                 extr.config_accumulate = extr._config_shared_accumulate
             extr._cfgpath = cfgpath
 
         if _async := extr.config("async", extr.async_mode):
-            extr._async_queue = _async if isinstance(
-                _async, int) and _async is not True else 10
+            extr._async_queue = _async if _async.__class__ is int else 10
             extr._async_items = extr.items
             extr.items = extr._async_items_main
 
@@ -107,7 +106,7 @@ class Job():
         if extr.config("keywords-eval"):
             self.kwdict_eval = []
             for key, value in kwdict.items():
-                if isinstance(value, str):
+                if value.__class__ is str:
                     fmt = formatter.parse(value, None, util.identity)
                     self.kwdict_eval.append((key, fmt.format_map))
                 else:
@@ -334,7 +333,7 @@ class Job():
             self.initialize()
 
     def _follow_parse(self, follow):
-        if isinstance(follow, str):
+        if follow.__class__ is str:
             return formatter.parse(follow, None, util.identity).format_map
 
         follow = [formatter.parse(f, None, util.identity).format_map
@@ -345,9 +344,9 @@ class Job():
     def _follow_collect(self, source):
         if not source:
             return None
-        if isinstance(source, list):
+        if source.__class__ is list:
             return source
-        if isinstance(source, str):
+        if source.__class__ is str:
             if urls := text.extract_urls(source):
                 return urls
 
@@ -356,9 +355,9 @@ class Job():
         for source in sources:
             if not source:
                 continue
-            elif isinstance(source, list):
+            elif source.__class__ is list:
                 urls.extend(source)
-            elif isinstance(source, str):
+            elif source.__class__ is str:
                 urls.extend(text.extract_urls(source))
         return urls or None
 
@@ -590,7 +589,7 @@ class DownloadJob(Job):
 
             if pmeta := pextr.config2(
                     "parent-metadata", "metadata-parent", parent or "_parent"):
-                if isinstance(pmeta, str):
+                if pmeta.__class__ is str:
                     data = self.kwdict.copy()
                     if kwdict:
                         data.update(kwdict)
@@ -773,7 +772,7 @@ class DownloadJob(Job):
                     self._archive_write_skip = False
                     self._archive_write_after = False
                 else:
-                    if isinstance(events, str):
+                    if events.__class__ is str:
                         events = events.split(",")
                     self._archive_write_file = ("file" in events)
                     self._archive_write_skip = ("skip" in events)
@@ -783,7 +782,7 @@ class DownloadJob(Job):
             self._skipexc = None
             if skip == "enumerate":
                 pathfmt.check_file = pathfmt._enum_file
-            elif isinstance(skip, str):
+            elif skip.__class__ is str:
                 skip, _, smax = skip.partition(":")
                 if skip == "abort":
                     smax, _, sarg = smax.partition(":")
@@ -816,7 +815,7 @@ class DownloadJob(Job):
             pp_list = []
 
             for pp_dict in postprocessors:
-                if isinstance(pp_dict, str):
+                if pp_dict.__class__ is str:
                     pp_dict = pp_conf.get(pp_dict) or {"name": pp_dict}
                 elif "type" in pp_dict:
                     pp_type = pp_dict["type"]
@@ -993,13 +992,13 @@ class KeywordJob(Job):
                 continue
             key = prefix + key + suffix
 
-            if isinstance(value, dict):
+            if value.__class__ is dict:
                 self.print_kwdict(value, key + "['", markers)
 
-            elif isinstance(value, list):
+            elif value.__class__ is list:
                 if not value:
                     pass
-                elif isinstance(value[0], dict):
+                elif value[0].__class__ is dict:
                     self.print_kwdict(value[0], key + "[N]['", markers)
                 else:
                     fmt = ("  {:>%s} {}\n" % len(str(len(value)))).format

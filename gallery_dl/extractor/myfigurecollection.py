@@ -10,6 +10,7 @@
 
 from .common import Extractor, Message, Dispatch
 from .. import text, util
+import itertools
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?myfigurecollection\.net"
 USER_PATTERN = BASE_PATTERN + r"/profile/([^/?#]+)"
@@ -97,7 +98,11 @@ class MyfigurecollectionItemExtractor(MyfigurecollectionExtractor):
             url = file["src"]
             item["width"] = file["w"]
             item["height"] = file["h"]
-            yield Message.Url, url, text.nameext_from_url(url, item)
+            text.nameext_from_url(url, item)
+            if not item["filename"]:
+                item["filename"] = item_id
+                item["extension"] = "jpg"
+            yield Message.Url, url, item
 
     def _parse_releases(self, html):
         items = html.split('<div class="data-value">')
@@ -149,7 +154,7 @@ class MyfigurecollectionPictureExtractor(MyfigurecollectionExtractor):
             "user"  : text.remove_html(extr("<section>", "</a><span")),
             "date"  : self.parse_datetime(extr(
                 '<span title="', '"'), "%m/%d/%Y, %H:%M:%S"),
-            "url"   : extr('<a href="', '"'),
+            "url"   : extr('the-picture"><a href="', '"'),
             "width" : text.parse_int(extr(
                 '<a class="size', ">") and extr("", "&times;")),
             "height": text.parse_int(extr("", " ")),
@@ -274,12 +279,23 @@ class MyfigurecollectionUserPicturesExtractor(MyfigurecollectionExtractor):
                 "_tb"       : "user",
                 "page"      : 1,
             }
+
+            url = f"{self.root}/profile/{username}/pictures/"
+            page = self.request(url).text
+            categories = text.extr(page, 'class="object-categories', "</div>")
+
+            items = []
+            for cid in text.extract_iter(categories, 'picture-category-', '"'):
+                params["categoryId"] = cid
+                items.append(self._pagination(params.copy()))
+            items = itertools.chain(*items)
         else:
             params = text.parse_query(query)
+            items = self._pagination(params)
 
         data = {"_extractor": MyfigurecollectionPictureExtractor}
         base = self.root + "/picture/"
-        for item_id in self._pagination(params):
+        for item_id in items:
             yield Message.Queue, base + item_id, data
 
 

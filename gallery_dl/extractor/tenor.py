@@ -27,7 +27,7 @@ class TenorExtractor(Extractor):
         if formats is None:
             self.formats = ("gif", "mp4", "webm", "webp")
         else:
-            if isinstance(formats, str):
+            if formats.__class__ is str:
                 formats = formats.split(",")
             self.formats = formats
 

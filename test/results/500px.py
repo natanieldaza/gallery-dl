@@ -42,7 +42,7 @@ __tests__ = (
     "lens"            : "EF-S55-250mm f/4-5.6 IS II",
     "likeCount"       : range(150, 300),
     "location"        : None,
-    "locationText"    : "",
+    "locationText"    : {"", None},
     "needLoginToView" : False,
     "publicAiCritiqueReport": None,
     "pulseScore"      : 90.28,
@@ -68,7 +68,7 @@ __tests__ = (
         "technique" : None,
         "title"     : "Woman in Blue Dress by the Water",
     },
-    "uploader"        : {
+    "user"          : {
         "__typename"    : "User",
         "address"       : None,
         "avatar"        : "https://cdn-static-prod-com.500px.cloud/user-avatar/12847235/0be43d645ae168f9f73df4ca7880c169aa936a63/5.jpg?x-oss-process=style/avatar600",
@@ -141,7 +141,7 @@ __tests__ = (
     "videoUrl"        : str,
     "viewCount"       : int,
     "width"           : 1080,
-    "uploader"        : {
+    "user"            : {
         "__typename"    : "User",
         "address"       : "",
         "avatar"        : str,
@@ -157,7 +157,7 @@ __tests__ = (
         "username"      : "sdlgodsart",
         "membership"    : {
             "__typename": "MembershipStatus",
-            "membership": "BASIC",
+            "membership": {"BASIC", "PRO"},
         },
     },
 },
@@ -201,6 +201,39 @@ __tests__ = (
         "contacts"      : list,
         "coverPhotos"   : list,
         "profileTabs"   : list,
+    },
+},
+
+{
+    "#url"     : "https://500px.com/p/hbsfoto",
+    "#comment" : "'PhotoGroup' items (#517)",
+    "#class"   : _500px._500pxUserExtractor,
+    "#pattern" : r"https://cdn\-resize\-prod\-com\.500px\.cloud/photo/\d+/0\.jpg\?.+",
+    "#range"   : "1-50",
+    "#count"   : 50,
+
+    "count"    : int,
+    "id"       : str,
+    "id_num"   : str,
+    "num"      : int,
+    "title"    : {str, None},
+    "type"     : "photo",
+    "user"     : {
+        "__typename"    : "User",
+        "displayName"   : "Hbsart",
+        "followeesCount": int,
+        "followersCount": int,
+        "id"            : "J9GfSMaq4XS",
+        "isBlockedByMe" : False,
+        "isFollowedByMe": False,
+        "isFollowingMe" : False,
+        "likeCount"     : int,
+        "location"      : "Eupen, Belgium",
+        "publicGalleryCount": int,
+        "publicResourceCount": int,
+        "sex"           : "MALE",
+        "userType"      : [],
+        "username"      : "hbsfoto",
     },
 },
 

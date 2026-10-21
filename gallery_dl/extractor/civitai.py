@@ -35,7 +35,7 @@ class CivitaiExtractor(Extractor):
             self.api = CivitaiTrpcAPI(self)
 
         if quality := self.config("quality"):
-            if not isinstance(quality, str):
+            if quality.__class__ is not str:
                 quality = ",".join(quality)
             self._image_quality = quality
             self._image_ext = ("png" if quality == "original=true" else "jpg")
@@ -44,7 +44,7 @@ class CivitaiExtractor(Extractor):
             self._image_ext = "png"
 
         if quality_video := self.config("quality-videos"):
-            if not isinstance(quality_video, str):
+            if quality_video.__class__ is not str:
                 quality_video = ",".join(quality_video)
             if quality_video[0] == "+":
                 quality_video = (self._image_quality + "," +
@@ -59,9 +59,9 @@ class CivitaiExtractor(Extractor):
         self._video_ext = "webm"
 
         if metadata := self.config("metadata"):
-            if isinstance(metadata, str):
+            if metadata.__class__ is str:
                 metadata = metadata.split(",")
-            elif not isinstance(metadata, (list, tuple)):
+            elif metadata.__class__ is not list:
                 metadata = {"generation", "version", "post", "tags"}
             self._meta_generation = ("generation" in metadata)
             self._meta_version = ("version" in metadata)
@@ -319,7 +319,7 @@ class CivitaiModelExtractor(CivitaiExtractor):
             "gallery" : self._extract_files_gallery,
             "gallerie": self._extract_files_gallery,
         }
-        if isinstance(filetypes, str):
+        if filetypes.__class__ is str:
             filetypes = filetypes.split(",")
 
         return itertools.chain.from_iterable(
@@ -884,17 +884,17 @@ class CivitaiTrpcAPI():
             url, params=params, headers=headers)["result"]["data"]
 
         return (self._unpack(util.json_loads(data))
-                if isinstance(data, str) else data["json"])
+                if data.__class__ is str else data["json"])
 
     def _unpack(self, pack):
         def resolve(item):
-            if isinstance(item, dict):
-                if all(isinstance(v, int) for v in item.values()):
+            if item.__class__ is dict:
+                if all(v.__class__ is int for v in item.values()):
                     for key, value in item.items():
                         item[key] = (resolve(pack[value])
                                      if value >= 0 else None)
-            elif isinstance(item, list):
-                if all(isinstance(v, int) for v in item):
+            elif item.__class__ is list:
+                if all(v.__class__ is int for v in item):
                     for idx, value in enumerate(item):
                         item[idx] = (resolve(pack[value])
                                      if value >= 0 else None)
@@ -949,9 +949,9 @@ class CivitaiTrpcAPI():
         for name, value in params.items():
             if name not in types:
                 continue
-            elif isinstance(value, str):
+            elif value.__class__ is str:
                 params[name] = types[name](value)
-            elif isinstance(value, list):
+            elif value.__class__ is list:
                 type = types[name]
                 params[name] = [type(item) for item in value]
         return params

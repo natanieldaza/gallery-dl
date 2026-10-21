@@ -326,7 +326,7 @@ class PatreonExtractor(Extractor):
             "postfile"   : self._postfile,
             "content"    : self._content,
         }
-        if isinstance(filetypes, str):
+        if filetypes.__class__ is str:
             filetypes = filetypes.split(",")
         return [genmap[ft] for ft in filetypes]
 

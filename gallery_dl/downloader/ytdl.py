@@ -167,7 +167,7 @@ class YoutubeDLDownloader(DownloaderBase):
         video_id = extr._generic_id(url)
 
         if cookies := kwdict.get("_ytdl_manifest_cookies"):
-            if isinstance(cookies, dict):
+            if cookies.__class__ is dict:
                 cookies = cookies.items()
             set_cookie = ytdl.cookiejar.set_cookie
             for name, value in cookies:
@@ -212,7 +212,7 @@ class YoutubeDLDownloader(DownloaderBase):
                         url, video_id, headers=headers)
                     subs = None
             else:
-                if isinstance(data, str):
+                if data.__class__ is str:
                     data = ElementTree.fromstring(data)
                 try:
                     fmts, subs = extr._parse_mpd_formats_and_subtitles(

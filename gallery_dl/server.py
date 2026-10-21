@@ -62,7 +62,7 @@ def listen(queueObj):
                     if not data:
                         continue
 
-                    if isinstance(data, list):
+                    if data.__class__ is list:
                         cnt = len(data)
                         if cnt != 1:
                             urls = "\n  ".join(data)
@@ -84,7 +84,7 @@ def listen(queueObj):
 
 def send(data):
     # send data to master process
-    cnt = len(data) if isinstance(data, list) else 1
+    cnt = len(data) if data.__class__ is list else 1
     if cnt == 1:
         log.info("Sending URL to Server")
     else:

@@ -119,11 +119,11 @@ def parse(data):
         return result
 
     def expand(key, value):
-        if isinstance(value, list):
+        if value.__class__ is list:
             for index, cvalue in enumerate(value):
                 ckey = f"{key}[{index}]"
                 yield from expand(ckey, cvalue)
-        elif isinstance(value, dict):
+        elif value.__class__ is dict:
             for ckey, cvalue in value.items():
                 ckey = f"{key}[{ckey}]"
                 yield from expand(ckey, cvalue)

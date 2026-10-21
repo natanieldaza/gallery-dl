@@ -22,14 +22,16 @@ else:
     BASE_PATTERN = (
         r"(?:bunkr:(?:https?://)?([^/?#]+)|"
         r"(?:https?://)?(?:app\.)?(bunkr+"
-        r"\.(?:s[kiu]|c[ir]|fi|p[hks]|ru|la|is|to|a[cx]"
+        r"\.(?:s[kiu]|c[irx]|fi|p[hks]|ru|la|is|to|a[cx]|by"
         r"|black|cat|media|red|site|ws|org)))"
     )
 
 DOMAINS = [
     "bunkr.ac",
+    "bunkr.by",
     "bunkr.ci",
     "bunkr.cr",
+    "bunkr.cx",
     "bunkr.fi",
     "bunkr.ph",
     "bunkr.pk",
@@ -178,7 +180,7 @@ class BunkrAlbumExtractor(LolisafeAlbumExtractor):
             except Exception as exc:
                 self.log.error("%s: %s", exc.__class__.__name__, exc)
                 self.log.debug("%s", item, exc_info=exc)
-                if isinstance(exc, self.exc.HttpError) and \
+                if exc.__class__ is self.exc.HttpError and \
                         exc.status == 400 and \
                         exc.response.url.startswith(self.root_api):
                     raise self.exc.AbortExtraction("Album deleted")

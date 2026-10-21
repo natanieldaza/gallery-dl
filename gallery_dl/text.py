@@ -379,7 +379,7 @@ def parse_query_list(qs, as_list=()):
 def build_query(params):
     return "&".join([
         (f"{quote(name)}="
-         f"{quote(str(value) if isinstance(value, int) else value)}")
+         f"{quote(str(value) if value.__class__ is int else value)}")
         for name, value in params.items()
     ])
 

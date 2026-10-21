@@ -68,10 +68,10 @@ def generate_test_result(args):
                 except ValueError:
                     pass
                 options[key] = value
-                config.set((), key, value)
+                config.setg(key, value)
         if args.range:
-            config.set((), "image-range"  , args.range)
-            config.set((), "chapter-range", args.range)
+            config.setg("image-range"  , args.range)
+            config.setg("chapter-range", args.range)
 
         djob = job.DataJob(args.extr, file=None)
         djob.filter = dict.copy
@@ -174,11 +174,11 @@ def generate_meta(args, data):
 def sort_key(key, value):
     if not value:
         return 0
-    if isinstance(value, str) and "\n" in value:
+    if value.__class__ is str and "\n" in value:
         return 7000
-    if isinstance(value, list) and not small(value):
+    if value.__class__ is list and not small(value):
         return 8000
-    if isinstance(value, dict) and not small(value):
+    if value.__class__ is dict and not small(value):
         return 9000
     return 0
 
@@ -186,9 +186,9 @@ def sort_key(key, value):
 def small(obj):
     if not obj:
         return True
-    if isinstance(obj, list):
+    if obj.__class__ is list:
         return False if len(obj) > 1 else small(obj[0])
-    if isinstance(obj, dict):
+    if obj.__class__ is dict:
         return False if len(obj) > 1 else small(next(iter(obj.values())))
     return True
 

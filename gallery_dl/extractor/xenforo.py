@@ -340,7 +340,7 @@ class XenforoExtractor(BaseExtractor):
         })
 
         stats = main["interactionStatistic"]
-        if isinstance(stats, list):
+        if stats.__class__ is list:
             thread["views"] = stats[0]["userInteractionCount"]
             thread["posts"] = stats[1]["userInteractionCount"]
         else:
@@ -365,7 +365,7 @@ class XenforoExtractor(BaseExtractor):
         })
 
         stats = main["interactionStatistic"]
-        if isinstance(stats, list):
+        if stats.__class__ is list:
             album["count"] = stats[0]["userInteractionCount"]
             album["likes"] = stats[1]["userInteractionCount"]
             album["views"] = stats[2]["userInteractionCount"]
@@ -390,7 +390,7 @@ class XenforoExtractor(BaseExtractor):
         }
 
         stats = main.get("interactionStatistic")
-        if isinstance(stats, list):
+        if stats.__class__ is list:
             profile["follows"] = stats[0]["userInteractionCount"]
             profile["likes"] = stats[1]["userInteractionCount"]
 
@@ -473,7 +473,7 @@ class XenforoExtractor(BaseExtractor):
         if ext := main.get("encodingFormat"):
             media["extension"] = ext
 
-        if isinstance(stats, list):
+        if stats.__class__ is list:
             media["views"] = stats[0]["userInteractionCount"]
             media["likes"] = stats[1]["userInteractionCount"]
             media["comments"] = stats[2]["userInteractionCount"]
@@ -534,6 +534,10 @@ BASE_PATTERN = XenforoExtractor.update({
     "thirsthub": {
         "root": "https://thirsthub.cc",
         "pattern": r"thirsthub\.cc",
+    },
+    "darkwanderer": {
+        "root": "https://darkwanderer.net",
+        "pattern": r"(?:www\.)?darkwanderer\.net",
     },
 })
 

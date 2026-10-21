@@ -262,7 +262,7 @@ class SkebSearchExtractor(SkebExtractor):
         if filters is None:
             filters = ("genre:art OR genre:voice OR genre:novel OR "
                        "genre:video OR genre:music OR genre:correction")
-        elif not isinstance(filters, str):
+        elif filters.__class__ is not str:
             filters = " OR ".join(filters)
 
         page = 0

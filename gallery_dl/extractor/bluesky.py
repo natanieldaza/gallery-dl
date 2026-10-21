@@ -26,9 +26,9 @@ class BlueskyExtractor(Extractor):
 
     def _init(self):
         if meta := self.config("metadata") or ():
-            if isinstance(meta, str):
+            if meta.__class__ is str:
                 meta = meta.replace(" ", "").split(",")
-            elif not isinstance(meta, (list, tuple)):
+            elif meta.__class__ is not list:
                 meta = ("user", "facets")
         self._metadata_user = ("user" in meta)
         self._metadata_facets = ("facets" in meta)

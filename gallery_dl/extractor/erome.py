@@ -12,7 +12,7 @@ from .common import Extractor, Message
 from .. import text, util
 import itertools
 
-BASE_PATTERN = r"(?:https?://)?(?:[\w-]+\.)?erome\.com"
+BASE_PATTERN = r"(?:https?://)?(?:www\.|[a-z]{2}\.)?erome\.com"
 
 
 class EromeExtractor(Extractor):
@@ -94,10 +94,10 @@ class EromeAlbumExtractor(EromeExtractor):
         date = None
         groups = page.split('<div class="media-group"')
         for group in util.advance(groups, 1):
-            url = (text.extr(group, '<source src="', '"') or
+            src = (text.extr(group, '<source src="', '"') or
                    text.extr(group, 'data-src="', '"'))
-            if url:
-                urls.append(url)
+            if src:
+                urls.append(src)
             if not date:
                 ts = text.extr(group, '?v=', '"')
                 if len(ts) > 1:

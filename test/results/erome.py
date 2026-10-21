@@ -37,6 +37,18 @@ __tests__ = (
     "num"     : int,
     "title"   : "82e78cfbb461ad87198f927fcb1fda9a1efac9ff.",
     "user"    : "yYgWBZw8o8qsMzM",
+    "_http_headers": {
+        "Referer": "https://www.erome.com/a/TdbZ4ogi",
+    },
+},
+
+{
+    "#url"     : "https://pt.erome.com/a/TdbZ4ogi",
+    "#comment" : "language subdomain",
+    "#category": ("", "erome", "album"),
+    "#class"   : erome.EromeAlbumExtractor,
+    "#pattern" : r"https://s\d+\.erome\.com/\d+/TdbZ4ogi/\w+",
+    "#count"   : 6,
 },
 
 {

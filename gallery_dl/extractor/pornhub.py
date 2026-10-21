@@ -12,6 +12,7 @@ from .common import Extractor, Message, Dispatch
 from .. import text
 
 BASE_PATTERN = r"(?:https?://)?(?:[\w-]+\.)?pornhub\.com"
+USER_PATTERN = BASE_PATTERN + r"/((?:channels|users|model|pornstar)/[^/?#]+)"
 
 
 class PornhubExtractor(Extractor):
@@ -57,11 +58,6 @@ class PornhubGalleryExtractor(PornhubExtractor):
     pattern = BASE_PATTERN + r"/album/(\d+)"
     example = "https://www.pornhub.com/album/12345"
 
-    def __init__(self, match):
-        PornhubExtractor.__init__(self, match)
-        self.gallery_id = match[1]
-        self._first = None
-
     def items(self):
         data = self.metadata()
         yield Message.Directory, "", data
@@ -81,7 +77,8 @@ class PornhubGalleryExtractor(PornhubExtractor):
             yield Message.Url, url, text.nameext_from_url(url, image)
 
     def metadata(self):
-        url = f"{self.root}/album/{self.gallery_id}"
+        gid = self.groups[0]
+        url = f"{self.root}/album/{gid}"
         extr = text.extract_from(self.request(url).text)
 
         title = extr("<title>", "</title>")
@@ -95,7 +92,7 @@ class PornhubGalleryExtractor(PornhubExtractor):
         return {
             "user" : text.unescape(user[:-14]),
             "gallery": {
-                "id"   : text.parse_int(self.gallery_id),
+                "id"   : text.parse_int(gid),
                 "title": text.unescape(title),
                 "score": text.parse_int(score.partition("%")[0]),
                 "views": text.parse_int(views.partition(" ")[0]),
@@ -104,7 +101,8 @@ class PornhubGalleryExtractor(PornhubExtractor):
         }
 
     def images(self):
-        url = f"{self.root}/api/v1/album/{self.gallery_id}/show_album_json"
+        gid = self.groups[0]
+        url = f"{self.root}/api/v1/album/{gid}/show_album_json"
         params = {"token": self._token}
         data = self.request_json(url, params=params)
 
@@ -121,8 +119,7 @@ class PornhubGalleryExtractor(PornhubExtractor):
                 if key == end:
                     break
         except KeyError:
-            self.log.warning("%s: Unable to ensure correct file order",
-                             self.gallery_id)
+            self.log.warning("%s: Unable to ensure correct file order", gid)
             return images.values()
 
         return results
@@ -137,16 +134,13 @@ class PornhubGifExtractor(PornhubExtractor):
     pattern = BASE_PATTERN + r"/gif/(\d+)"
     example = "https://www.pornhub.com/gif/12345"
 
-    def __init__(self, match):
-        PornhubExtractor.__init__(self, match)
-        self.gallery_id = match[1]
-
     def items(self):
-        url = f"{self.root}/gif/{self.gallery_id}"
+        gid = self.groups[0]
+        url = f"{self.root}/gif/{gid}"
         extr = text.extract_from(self.request(url).text)
 
         gif = {
-            "id"   : self.gallery_id,
+            "id"   : gid,
             "tags" : extr("data-context-tag='", "'").split(","),
             "title": extr('"name": "', '"'),
             "url"  : extr('"contentUrl": "', '"'),
@@ -163,34 +157,32 @@ class PornhubGifExtractor(PornhubExtractor):
 
 class PornhubUserExtractor(Dispatch, PornhubExtractor):
     """Extractor for a pornhub user"""
-    pattern = BASE_PATTERN + r"/((?:users|model|pornstar)/[^/?#]+)/?$"
+    pattern = USER_PATTERN + r"/?$"
     example = "https://www.pornhub.com/model/USER"
 
     def items(self):
         base = f"{self.root}/{self.groups[0]}/"
-        return self._dispatch_extractors((
-            (PornhubPhotosExtractor, base + "photos"),
-            (PornhubGifsExtractor  , base + "gifs"),
-        ), ("photos",))
+        return self._dispatch_extractors({
+            "avatar"    : (PornhubAssetExtractor , base + "avatar"),
+            "background": (PornhubAssetExtractor , base + "background"),
+            "photos"    : (PornhubPhotosExtractor, base + "photos"),
+            "gifs"      : (PornhubGifsExtractor  , base + "gifs"),
+        }, ("photos",))
 
 
 class PornhubPhotosExtractor(PornhubExtractor):
     """Extractor for all galleries of a pornhub user"""
     subcategory = "photos"
-    pattern = (BASE_PATTERN + r"/((?:users|model|pornstar)/[^/?#]+)"
-               "/(photos(?:/[^/?#]+)?)")
+    pattern = USER_PATTERN + r"/(photos(?:/[^/?#]+)?)"
     example = "https://www.pornhub.com/model/USER/photos"
-
-    def __init__(self, match):
-        PornhubExtractor.__init__(self, match)
-        self.user, self.path = match.groups()
 
     def items(self):
         data = {"_extractor": PornhubGalleryExtractor}
-        for page in self._pagination(self.user, self.path):
+        base = self.root + "/album/"
+        for page in self._pagination(*self.groups):
             gid = None
             for gid in text.extract_iter(page, 'id="albumphoto', '"'):
-                yield Message.Queue, self.root + "/album/" + gid, data
+                yield Message.Queue, base + gid, data
             if gid is None:
                 return
 
@@ -198,19 +190,54 @@ class PornhubPhotosExtractor(PornhubExtractor):
 class PornhubGifsExtractor(PornhubExtractor):
     """Extractor for a pornhub user's gifs"""
     subcategory = "gifs"
-    pattern = (BASE_PATTERN + r"/((?:users|model|pornstar)/[^/?#]+)"
-               "/(gifs(?:/[^/?#]+)?)")
+    pattern = USER_PATTERN + r"/(gifs(?:/[^/?#]+)?)"
     example = "https://www.pornhub.com/model/USER/gifs"
-
-    def __init__(self, match):
-        PornhubExtractor.__init__(self, match)
-        self.user, self.path = match.groups()
 
     def items(self):
         data = {"_extractor": PornhubGifExtractor}
-        for page in self._pagination(self.user, self.path):
+        base = self.root + "/gif/"
+        for page in self._pagination(*self.groups):
             gid = None
             for gid in text.extract_iter(page, 'id="gif', '"'):
-                yield Message.Queue, self.root + "/gif/" + gid, data
+                yield Message.Queue, base + gid, data
             if gid is None:
                 return
+
+
+class PornhubAssetExtractor(PornhubExtractor):
+    """Extractor for a pornhub user's avatar & banner"""
+    subcategory = "asset"
+    directory_fmt = ("{category}", "{user}")
+    filename_fmt = "{type} {id}.{extension}"
+    archive_fmt = "{user}/{type}/{id}"
+    pattern = USER_PATTERN + r"/(?:avatar|ba(nner|ckground))"
+    example = "https://www.pornhub.com/model/USER/avatar"
+
+    def __init__(self, match):
+        self.subcategory = "background" if match[2] else "avatar"
+        PornhubExtractor.__init__(self, match)
+
+    def items(self):
+        url = f"{self.root}/{self.groups[0]}"
+        page = self.request(url).text
+
+        if self.groups[1]:
+            offset = 5
+            needle = "coverPictureDefault"
+        else:
+            offset = 6
+            needle = "getAvatar"
+
+        if src := text.extr(page, f'id="{needle}" src="', '"'):
+            src = text.unescape(src)
+            if src.count("/") >= 8:
+                id = src.rsplit("/", 2)[1][offset:]
+            else:
+                id = src[src.rfind(")")+1:src.rfind(".")]
+            data = text.nameext_from_url(src, {
+                "id"  : id,
+                "type": self.subcategory,
+                "user": text.extr(page, "<h1", "<").partition(">")[2].strip(),
+            })
+            yield Message.Directory, "", data
+            yield Message.Url, src, data

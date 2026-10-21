@@ -35,7 +35,14 @@ class ClientTransaction():
 
     def initialize(self, extractor, homepage=None):
         if homepage is None:
-            homepage = extractor.request("https://x.com/home").text
+            response = extractor.request(
+                extractor.root + "/home", allow_redirects=False)
+            if 300 <= response.status_code < 400:
+                extractor.log.warning("HTTP redirect to login page (%s)",
+                                      response.headers.get("Location"))
+                extractor.log.warning("Update your login session cookies!")
+                response = extractor.request(extractor.root + "/i/jf/")
+            homepage = response.text
 
         key = self._extract_verification_key(homepage)
         if not key:
@@ -205,7 +212,7 @@ def interpolate_list(x, a, b):
 
 
 def interpolate_value(x, a, b):
-    if isinstance(a, bool):
+    if a.__class__ is bool:
         return a if x <= 0.5 else b
     return a * (1.0 - x) + b * x
 

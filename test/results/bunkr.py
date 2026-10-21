@@ -117,6 +117,12 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://bunkr.cx/a/Lktg9Keq",
+    "#category": ("lolisafe", "bunkr", "album"),
+    "#class"   : bunkr.BunkrAlbumExtractor,
+},
+
+{
     "#url"     : "https://bunkr.fi/a/Lktg9Keq",
     "#category": ("lolisafe", "bunkr", "album"),
     "#class"   : bunkr.BunkrAlbumExtractor,
@@ -354,6 +360,12 @@ __tests__ = (
     "num"       : 1,
     "slug"      : "mX1DBQooiUOJ9",
     "uuid"      : "edf721b7-618b-4214-9305-845e1d210437",
+},
+
+{
+    "#url"     : "https://bunkr.by/f/EGRC1I2XGJZ7N",
+    "#category": ("lolisafe", "bunkr", "media"),
+    "#class"   : bunkr.BunkrMediaExtractor,
 },
 
 {

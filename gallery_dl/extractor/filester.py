@@ -31,6 +31,23 @@ class FilesterExtractor(Extractor):
         return (f"{data['server']}/v2/{data['file']}"
                 f"?token={data['token']}&download=true")
 
+    def _submit_password(self, page, password):
+        extr = text.extract_from(page)
+        path = text.unescape(extr('action="', '"'))
+        nonce = text.unescape(extr('="nonce" value="', '"'))
+        payload = f"{password}|{int(util.time.time()*1000)}|{nonce}"
+
+        body = {
+            "nonce"   : nonce,
+            "password": util.b64rencode(payload.encode()),
+        }
+
+        response = self.request(
+            self.root + path, method="POST", data=body, allow_redirects=False)
+        if response.status_code != 303:
+            msg = text.extr(response.text, 'class="error">', '<')
+            raise self.exc.AuthorizationError(f"'{text.unescape(msg)}'")
+
 
 class FilesterFileExtractor(FilesterExtractor):
     subcategory = "file"
@@ -43,8 +60,16 @@ class FilesterFileExtractor(FilesterExtractor):
 
         url = f"{self.root}/d/{file_slug}"
         page = self.request(url).text
-        extr = text.extract_from(page)
 
+        if page.find("<title>Password Required</title>", 0, 100) >= 0:
+            if password := self.config("password"):
+                self._submit_password(page, password)
+                page = self.request(url).text
+            else:
+                msg = text.unescape(text.extr(page, "<p>", "<"))
+                raise self.exc.AuthRequired("password", "file", msg)
+
+        extr = text.extract_from(page)
         name = text.unquote(text.unescape(extr(
             'property="og:title" content="', '"')))
         file = text.nameext_from_name(name, {
@@ -116,20 +141,3 @@ class FilesterFolderExtractor(FilesterExtractor):
             if ">→</a>" not in page:
                 break
             params["page"] += 1
-
-    def _submit_password(self, page, password):
-        extr = text.extract_from(page)
-        path = text.unescape(extr('action="', '"'))
-        nonce = text.unescape(extr('="nonce" value="', '"'))
-        payload = f"{password}|{int(util.time.time()*1000)}|{nonce}"
-
-        body = {
-            "nonce"   : nonce,
-            "password": util.b64rencode(payload.encode()),
-        }
-
-        response = self.request(
-            self.root + path, method="POST", data=body, allow_redirects=False)
-        if response.status_code != 303:
-            msg = text.extr(response.text, 'class="error">', '<')
-            raise self.exc.AuthorizationError(f"'{text.unescape(msg)}'")

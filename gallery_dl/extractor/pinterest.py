@@ -38,7 +38,7 @@ class PinterestExtractor(Extractor):
 
         for pin in self.pins():
 
-            if isinstance(pin, tuple):
+            if pin.__class__ is tuple:
                 url, data = pin
                 yield Message.Queue, url, data
                 continue
@@ -553,7 +553,7 @@ class PinterestAPI():
         while True:
             data = self._call(resource, options)
             results = data["resource_response"]["data"]
-            if isinstance(results, dict):
+            if results.__class__ is dict:
                 results = results["results"]
             yield from results
 

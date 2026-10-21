@@ -49,7 +49,7 @@ class LeakgalleryExtractor(Extractor):
                     return
                 if "medias" in data:
                     data = data["medias"]
-                    if not data or not isinstance(data, list):
+                    if not data or data.__class__ is not list:
                         return
 
                 yield from self._yield_media_items(data, creator)

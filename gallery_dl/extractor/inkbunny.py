@@ -11,7 +11,6 @@
 from .common import Extractor, Message
 from .. import text
 
-
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?inkbunny\.net"
 
 
@@ -339,31 +338,40 @@ class InkbunnyAPI():
             self.set_allowed_ratings()
 
     def _authenticate_impl(self, username, password):
-        self.extractor.log.info("Logging in as %s", username)
+        extr = self.extractor
+        extr.log.info("Logging in as %s", username)
 
-        url = "https://inkbunny.net/api_login.php"
+        url = extr.root + "/api_login.php"
         data = {"username": username, "password": password}
-        data = self.extractor.request_json(url, method="POST", data=data)
+        data = extr.request_json(url, method="POST", data=data)
 
         if "sid" not in data:
-            raise Extractor.exc.AuthenticationError(data.get("error_message"))
+            raise extr.exc.AuthenticationError(data.get("error_message"))
         return data["sid"]
 
     def _call(self, endpoint, params):
-        url = "https://inkbunny.net/api_" + endpoint + ".php"
+        extr = self.extractor
+        url = f"{extr.root}/api_{endpoint}.php"
 
         while True:
             params["sid"] = self.session_id
-            data = self.extractor.request_json(url, params=params)
+            data = extr.request_json(url, params=params)
 
             if "error_code" not in data:
                 return data
 
-            if str(data["error_code"]) == "2":
+            err = str(data["error_code"])
+            if err == "2":
+                # "Invalid Session ID sent as variable 'sid'"
                 self.authenticate(invalidate=True)
-                continue
-
-            raise self.extractor.exc.AbortExtraction(data.get("error_message"))
+            elif err == "4":
+                # "No results found for Results ID sent as variable 'rid'"
+                # -> continue without 'rid'
+                self.extractor.log.debug("'rid' expired")
+                #  params["get_rid"] = "true"  # works only on page '1'
+                del params["rid"]
+            else:
+                raise extr.exc.AbortExtraction(data.get("error_message"))
 
     def _pagination_search(self, params):
         params["page"] = 1

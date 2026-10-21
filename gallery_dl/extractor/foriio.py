@@ -130,7 +130,7 @@ class ForiioUserExtractor(ForiioExtractor):
 
     def items(self):
         if posts := self.config("posts"):
-            if isinstance(posts, str):
+            if posts.__class__ is str:
                 posts = posts.split(",")
             posts = set(posts)
 

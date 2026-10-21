@@ -58,6 +58,13 @@ __tests__ = (
     "#pattern" : fapello.FapelloPostExtractor.pattern,
     "#range"   : "1-50",
     "#count"   : 50,
+
+    "model_name": "Hyoon",
+    "aliases"   : [
+        "Aikuros",
+        "floaromaa",
+        "hyoon",
+    ],
 },
 
 {

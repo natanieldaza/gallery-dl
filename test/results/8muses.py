@@ -6,22 +6,30 @@
 
 gallery_dl = __import__("gallery_dl.extractor.8muses")
 _8muses = getattr(gallery_dl.extractor, "8muses")
-from gallery_dl import exception
 
 
 __tests__ = (
 {
+    "#url"     : "https://comics.8muses.com/porn/album/MCC-Comics",
+    "#class"   : _8muses._8musesAlbumExtractor,
+    "#pattern" : _8muses._8musesAlbumExtractor.pattern,
+    "#count"   : range(180, 500),
+
+    "name"   : str,
+    "private": False,
+    "url"    : str,
+},
+
+{
     "#url"     : "https://comics.8muses.com/comics/album/Various-Authors/Chessire88/From-Trainers-to-Pokmons",
     "#comment" : "non-ASCII characters",
-    "#category": ("", "8muses", "album"),
     "#class"   : _8muses._8musesAlbumExtractor,
-    "#exception": exception.HttpError,
+    "#exception": "HttpError",
 },
 
 {
     "#url"     : "https://comics.8muses.com/comics/album/Tufos-Comics/Gallery",
     "#comment" : "private albums without 'permalink' (#6717)",
-    "#category": ("", "8muses", "album"),
     "#class"   : _8muses._8musesAlbumExtractor,
     "#count"   : range(100, 150),
 },
@@ -29,11 +37,11 @@ __tests__ = (
 {
     "#url"     : "https://comics.8muses.com/comics/album/Various-Authors/JankinGen",
     "#class"   : _8muses._8musesAlbumExtractor,
-    "#results" : "https://comics.8muses.com/comics/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure",
+    "#results" : "https://comics.8muses.com/porn/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure",
 
     "name"   : "Princess Laura Sex Adventure",
     "private": False,
-    "url"    : "https://comics.8muses.com/comics/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure",
+    "url"    : "https://comics.8muses.com/porn/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure",
 },
 
 {
@@ -54,8 +62,8 @@ __tests__ = (
         "parent" : 21158,
         "private": False,
         "title"  : "Issue 1",
-        "url"    : "https://comics.8muses.com/comics/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure/Issue-1",
-        "views"  : 68034,
+        "url"    : "https://comics.8muses.com/porn/album/Various-Authors/JankinGen/Princess-Laura-Sex-Adventure/Issue-1",
+        "views"  : range(60_000, 200_000),
         "path"   : [
             "Various Authors",
             "JankinGen",

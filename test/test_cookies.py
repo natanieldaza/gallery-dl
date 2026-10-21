@@ -46,7 +46,7 @@ class TestCookiejar(unittest.TestCase):
         config.clear()
 
     def test_cookiefile(self):
-        config.set((), "cookies", self.cookiefile)
+        config.setg("cookies", self.cookiefile)
         cookies = _get_extractor("test").cookies
         self.assertEqual(len(cookies), 1)
 
@@ -63,7 +63,7 @@ class TestCookiejar(unittest.TestCase):
         self._test_warning(join(self.path.name, "nothing"), FileNotFoundError)
 
     def _test_warning(self, filename, exc):
-        config.set((), "cookies", filename)
+        config.setg("cookies", filename)
         log = logging.getLogger("generic")
 
         with mock.patch.object(log, "warning") as mock_warning:
@@ -78,7 +78,7 @@ class TestCookiedict(unittest.TestCase):
 
     def setUp(self):
         self.cdict = {"NAME1": "VALUE1", "NAME2": "VALUE2"}
-        config.set((), "cookies", self.cdict)
+        config.setg("cookies", self.cdict)
 
     def tearDown(self):
         config.clear()
@@ -114,7 +114,7 @@ class TestCookieLogin(unittest.TestCase):
         }
         for category, cookienames in extr_cookies.items():
             cookies = {name: "value" for name in cookienames}
-            config.set((), "cookies", cookies)
+            config.setg("cookies", cookies)
             extr = _get_extractor(category)
             with mock.patch.object(extr, "_login_impl") as mock_login:
                 extr.login()

@@ -46,8 +46,8 @@ for idx, extr, url, result in tests:
             key = key.split(".")
             config.set(key[:-1], key[-1], value)
     if "range" in result:
-        config.set((), "image-range"  , result["range"])
-        config.set((), "chapter-range", result["range"])
+        config.setg("image-range"  , result["range"])
+        config.setg("chapter-range", result["range"])
 
     # write test data
     try:

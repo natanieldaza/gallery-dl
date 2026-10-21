@@ -95,7 +95,7 @@ class CienArticleExtractor(CienExtractor):
                 "gallery" : self._extract_files_gallery,
                 "gallerie": self._extract_files_gallery,
             }
-            if isinstance(filetypes, str):
+            if filetypes.__class__ is str:
                 filetypes = filetypes.split(",")
             for ft in filetypes:
                 generators[ft.rstrip("s")](page, files)

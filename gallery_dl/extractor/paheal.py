@@ -48,8 +48,7 @@ class PahealExtractor(Extractor):
         post = {
             "id"      : post_id,
             "tags"    : extr(": ", "<"),
-            "file_url": (extr("id='main_image' src='", "'") or
-                         extr("<source src='", "'")),
+            "file_url": extr("id='main_image'", "") or extr("src='", "'"),
             "uploader": text.unquote(extr(
                 "class='username' href='/user/", "'")),
             "date"    : self.parse_datetime_iso(extr("datetime='", "'")),
@@ -137,7 +136,7 @@ class PahealTagExtractor(PahealExtractor):
             "duration" : text.parse_float(duration[:-1]),
             "tags"     : text.unescape(tags),
             "size"     : text.parse_bytes(size[:-1]),
-            "date"     : self.parse_datetime(date, "%B %d, %Y; %H:%M"),
+            "date"     : self.parse_datetime_iso(date),
             "filename" : f"{pid} - {tags}",
             "extension": ext,
         }

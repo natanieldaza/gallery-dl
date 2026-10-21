@@ -60,6 +60,9 @@ class BellazonExtractor(Extractor):
                         "/topic/" in url
                     ):
                         continue
+                    if "/main/login/" in url:
+                        self.log.warning("'Image hidden for guests'")
+                        continue
                     data["num"] += 1
                     data["num_internal"] += 1
                     if not (alt := text.extr(info, ' alt="', '"')) or (

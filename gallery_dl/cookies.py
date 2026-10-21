@@ -220,7 +220,7 @@ def _firefox_cookies_database(browser_name, profile=None, container=None):
         search_root = profile
     else:
         search_root = _firefox_browser_directory(browser_name)
-        if isinstance(search_root, str):
+        if search_root.__class__ is str:
             search_root = os.path.join(search_root, profile)
         else:
             search_root = [os.path.join(dir, profile) for dir in search_root]
@@ -427,7 +427,8 @@ def _chromium_cookies_database(profile, config):
         config["directory"] = (os.path.dirname(profile)
                                if config["profiles"] else profile)
     elif config["profiles"]:
-        if isinstance(search_root := config["directory"], str):
+        search_root = config["directory"]
+        if search_root.__class__ is str:
             search_root = os.path.join(search_root, profile)
         else:
             search_root = [os.path.join(dir, profile) for dir in search_root]
@@ -1133,7 +1134,7 @@ def _decrypt_windows_dpapi(ciphertext):
 
 
 def _find_most_recently_used_file(roots, filename):
-    if isinstance(roots, str):
+    if roots.__class__ is str:
         roots = (roots,)
 
     # if the provided root points to an exact profile path

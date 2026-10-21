@@ -350,7 +350,7 @@ class PixivExtractor(Extractor):
             lambda m: '<a href="' + text.unquote(m[1]), caption))
 
     def _fallback_image(self, src):
-        if isinstance(src, str):
+        if src.__class__ is str:
             urls = None
             orig = src
         else:

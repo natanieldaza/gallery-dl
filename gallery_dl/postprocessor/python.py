@@ -39,7 +39,7 @@ class PythonPP(PostProcessor):
                     self.args = ()
 
                 if kwargs:
-                    if isinstance(kwargs, dict):
+                    if kwargs.__class__ is dict:
                         kwargs = kwargs.items()
                     self.kwargs = [(name, formatter.parse(arg).format_map)
                                    for name, arg in kwargs]
@@ -52,7 +52,7 @@ class PythonPP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("file",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
 

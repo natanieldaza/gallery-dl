@@ -82,7 +82,7 @@ class BasePostprocessorTest(unittest.TestCase):
     def setUpClass(cls):
         cls.dir = tempfile.TemporaryDirectory()
         config.clear()
-        config.set((), "base-directory", cls.dir.name)
+        config.setg("base-directory", cls.dir.name)
         cls.job = FakeJob()
 
     @classmethod

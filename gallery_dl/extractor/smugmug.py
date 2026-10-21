@@ -249,7 +249,7 @@ class SmugmugAPI(oauth.OAuth1API):
             return response[locator] if locator in response else []
 
         objs = unwrap(data["Response"])
-        if not isinstance(objs, list):
+        if objs.__class__ is not list:
             objs = (objs,)
 
         if "Expansions" in data:

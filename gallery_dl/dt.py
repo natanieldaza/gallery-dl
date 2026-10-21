@@ -44,9 +44,9 @@ def convert(value):
     """Convert 'value' to a naive UTC datetime object"""
     if not value:
         return NONE
-    if isinstance(value, datetime):
+    if value.__class__ is datetime:
         return normalize(value)
-    if isinstance(value, str) and (dt := parse_iso(value)) is not NONE:
+    if value.__class__ is str and (dt := parse_iso(value)) is not NONE:
         return dt
     return parse_ts(value)
 

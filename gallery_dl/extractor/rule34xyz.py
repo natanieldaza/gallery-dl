@@ -48,7 +48,7 @@ class Rule34xyzExtractor(BooruExtractor):
 
     def _init(self):
         if formats := self.config("format"):
-            if isinstance(formats, str):
+            if formats.__class__ is str:
                 formats = formats.split(",")
             self.formats = formats
         else:

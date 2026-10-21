@@ -197,7 +197,7 @@ class TumblrExtractor(Extractor):
             return frozenset()
 
         else:
-            if isinstance(types, str):
+            if types.__class__ is str:
                 types = types.split(",")
             types = frozenset(types)
 
@@ -522,7 +522,7 @@ class TumblrAPI(oauth.OAuth1API):
                         self.session.auth.consumer_key
                     self.session = self.extractor.session
                     continue
-                msg = f"'{msg}'" if isinstance(msg, str) else None
+                msg = f"'{msg}'" if msg.__class__ is str else None
                 raise self.exc.AuthorizationError(msg)
 
             elif status == 404:

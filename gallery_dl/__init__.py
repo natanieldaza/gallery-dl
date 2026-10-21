@@ -48,7 +48,7 @@ def main():
             config.load(args.configs_toml, strict=True, loads=toml.loads)
         if not args.colors:
             output.ANSI = False
-            config.set((), "colors", False)
+            config.setg("colors", False)
             if util.WINDOWS:
                 config.set(("output",), "ansi", False)
         if args.filename:
@@ -57,16 +57,16 @@ def main():
                 filename = "{filename}.{extension}"
             elif filename.startswith("\\f"):
                 filename = f"\f{filename[2:]}"
-            config.set((), "filename", filename)
+            config.setg("filename", filename)
         if args.directory is not None:
-            config.set((), "base-directory", args.directory)
-            config.set((), "directory", ())
+            config.setg("base-directory", args.directory)
+            config.setg("directory", ())
         if args.postprocessors:
-            config.set((), "postprocessors", args.postprocessors)
+            config.setg("postprocessors", args.postprocessors)
         if args.abort:
-            config.set((), "skip", "abort:" + args.abort)
+            config.setg("skip", "abort:" + args.abort)
         if args.terminate:
-            config.set((), "skip", "terminate:" + args.terminate)
+            config.setg("skip", "terminate:" + args.terminate)
         if args.cookies_from_browser:
             browser, _, profile = args.cookies_from_browser.partition(":")
             browser, _, keyring = browser.partition("+")
@@ -76,16 +76,17 @@ def main():
                 profile = None
             else:
                 profile, _, container = profile.partition("::")
-            config.set((), "cookies", (
-                browser, profile, keyring, container, domain))
+            config.setg("cookies", [
+                browser, profile, keyring, container, domain])
+            config.setg("cookies-select", None)
         if args.options_pp:
-            config.set((), "postprocessor-options", args.options_pp)
+            config.setg("postprocessor-options", args.options_pp)
         for opts in args.options:
             config.set(*opts)
 
         # environment variables
         if env := config.getg("environment"):
-            if isinstance(env, dict):
+            if env.__class__ is dict:
                 env = env.dicts()
             environ = os.environ
             if config.getg("environment-expand", True):
@@ -101,7 +102,7 @@ def main():
         # signals
         if signals := config.getg("signals-ignore"):
             import signal
-            if isinstance(signals, str):
+            if signals.__class__ is str:
                 signals = signals.split(",")
             for signal_name in signals:
                 signal_num = getattr(signal, signal_name, None)
@@ -135,7 +136,7 @@ def main():
             pass
         elif not filterenv:
             util.compile_expression = util.compile_expression_raw
-        elif isinstance(filterenv, str):
+        elif filterenv.__class__ is str:
             if filterenv == "raw":
                 util.compile_expression = util.compile_expression_raw
             elif filterenv.startswith("default"):
@@ -300,7 +301,7 @@ Entries:
         # extractor modules
         modules = config.get(("extractor",), "modules")
         if modules is not None:
-            if isinstance(modules, str):
+            if modules.__class__ is str:
                 modules = modules.split(",")
             extractor.modules = modules
 
@@ -315,7 +316,7 @@ Entries:
             modules = []
 
             for source in sources:
-                if isinstance(source, str):
+                if source.__class__ is str:
                     path = util.expand_path(source)
                     try:
                         files = [name[:-3] for name in os.listdir(path)
@@ -324,7 +325,7 @@ Entries:
                     except Exception as exc:
                         log.warning("Unable to load modules from %s (%s: %s)",
                                     path, exc.__class__.__name__, exc)
-                elif isinstance(source, dict):
+                elif source.__class__ is dict:
                     path = util.expand_path(source["from"])
                     files = source["import"]
                     try:
@@ -370,7 +371,7 @@ Entries:
         else:
             if input_files := config.getg("input-files"):
                 for input_file in input_files:
-                    if isinstance(input_file, str):
+                    if input_file.__class__ is str:
                         input_file = (input_file, None)
                     args.input_files.append(input_file)
 
@@ -434,7 +435,7 @@ Entries:
 
             if args.server and not nourls and input_manager.urls:
                 return server.send([
-                    url[0] if isinstance(url, tuple) else url
+                    url[0] if url.__class__ is tuple else url
                     for url in input_manager.urls
                 ])
 
@@ -468,7 +469,7 @@ Entries:
                 try:
                     log.debug("Starting %s for '%s'", jobtype.__name__, url)
 
-                    if isinstance(url, ExtendedUrl):
+                    if url.__class__ is ExtendedUrl:
                         for opts in url.gconfig:
                             config.set(*opts)
                         with config.apply(url.lconfig):
@@ -702,7 +703,7 @@ class InputManager():
         except IndexError:
             raise StopIteration
 
-        if isinstance(url, tuple):
+        if url.__class__ is tuple:
             self._item = url
             url = url[0]
         else:

@@ -78,4 +78,24 @@ __tests__ = (
     ],
 },
 
+{
+    "#url"     : "https://kagane.si/series/the-ogre-s-bride-019c5678-f35c-7589-9375-912718d50bd0",
+    "#class"   : kagane.KaganeMangaExtractor,
+},
+
+{
+    "#url"     : "https://kagane.cx/series/the-ogre-s-bride-019c5678-f35c-7589-9375-912718d50bd0",
+    "#class"   : kagane.KaganeMangaExtractor,
+},
+
+{
+    "#url"     : "https://kagane.moe/series/the-ogre-s-bride-019c5678-f35c-7589-9375-912718d50bd0",
+    "#class"   : kagane.KaganeMangaExtractor,
+},
+
+{
+    "#url"     : "https://kagane.net/series/the-ogre-s-bride-019c5678-f35c-7589-9375-912718d50bd0",
+    "#class"   : kagane.KaganeMangaExtractor,
+},
+
 )

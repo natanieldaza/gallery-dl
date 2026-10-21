@@ -34,7 +34,7 @@ class JoyreactorExtractor(Extractor):
         self.videos = self.config("videos", True)
         self.videos_formats = self.config("format")
 
-        if isinstance(self.videos_formats, str):
+        if self.videos_formats.__class__ is str:
             self.videos_formats = self.videos_formats.split(",")
 
     def items(self):

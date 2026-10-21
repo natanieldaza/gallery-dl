@@ -39,7 +39,7 @@ class SimplyhentaiExtractor(Extractor):
         while True:
             data = self.request_api(endpoint, params)
 
-            if isinstance(data["data"], dict):
+            if data["data"].__class__ is dict:
                 yield from data["data"]["albums"]
             else:
                 yield from data["data"]
@@ -167,6 +167,6 @@ class SimplyhentaiGalleryExtractor(GalleryExtractor, SimplyhentaiExtractor):
 
     def images(self, _):
         imgs = self._images
-        if isinstance(imgs, str):
+        if imgs.__class__ is str:
             imgs = self.request_api(imgs)["data"]["pages"]
         return [(img["sizes"]["full"], {"id": img["id"]}) for img in imgs]

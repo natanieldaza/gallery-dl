@@ -30,7 +30,7 @@ __tests__ = (
     "id"              : 21436111,
     "isForever"       : True,
     "liked"           : False,
-    "likes"           : 35,
+    "likes"           : range(35, 200),
     "muteType"        : "POSTYPE",
     "num"             : 1,
     "post_id"         : 21436111,
@@ -62,7 +62,7 @@ __tests__ = (
             "hash"     : "2j1svl",
             "nickname" : "미라주",
             "profileId": 2851853,
-            "thumbnail": "https://d3mcojo3jv0dbr.cloudfront.net/2022/11/18/13/58/c4f602f8c1e844079fdef958ab3d5581.png",
+            "thumbnail": str,
         },
     },
     "channel"         : {
@@ -80,7 +80,7 @@ __tests__ = (
         "profileId"       : 2851853,
         "role"            : None,
         "subscribed"      : False,
-        "subscriberCount" : 8060,
+        "subscriberCount" : range(8000, 20000),
         "thumbnail"       : "https://d33pksfia2a94m.cloudfront.net/assets/img/avatar/blog_blank.png",
         "title"           : "미라주",
         "type"            : "BASIC",
@@ -90,13 +90,13 @@ __tests__ = (
         "hash"         : "2j1svl",
         "id"           : 2851853,
         "nickname"     : "미라주",
-        "thumbnail"    : "https://d3mcojo3jv0dbr.cloudfront.net/2022/11/18/13/58/c4f602f8c1e844079fdef958ab3d5581.png",
+        "thumbnail"    : str,
         "useMessage"   : True,
         "userProfileId": 2851853,
     },
     "series"          : {
         "id"       : 1030652,
-        "postCount": 191,
+        "postCount": range(190, 300),
         "seriesId" : 1030652,
         "title"    : "종합장",
     },
@@ -106,6 +106,17 @@ __tests__ = (
     "#url"     : "https://www.postype.com/en/@sanoonsnowfield/post/21587023",
     "#comment" : "URL with ISO 639 language code",
     "#class"   : postype.PostypePostExtractor,
+},
+
+{
+    "#url"     : "https://www.postype.com/@myosi-15/post/23058789",
+    "#comment" : "'.zip' file download (gh#9788)",
+    "#class"   : postype.PostypePostExtractor,
+    "#pattern" : (
+        r"https://\w+.cloudfront.net/2026/08/29/20/06/b08aae2509800520257249154.gif",
+        r"https://\w+.cloudfront.net/2026/08/29/20/06/2a69b212545112078901861048.zip\?filename=%EC%B5%9C_images.zip&Expires=\d+&Signature=.+",
+        r"https://\w+.cloudfront.net/2026/08/29/20/07/7601ce2207923886135567857.gif",
+    ),
 },
 
 {

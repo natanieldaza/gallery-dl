@@ -28,9 +28,9 @@ class IwaraExtractor(Extractor):
 
         self.embeds = self.config("embeds", False)
         if fmts := self.config("format"):
-            if isinstance(fmts, str):
+            if fmts.__class__ is str:
                 fmts = fmts.replace(" ", "").lower().split(",")
-            elif not isinstance(fmts, (list, tuple)):
+            elif fmts.__class__ is not list:
                 fmts = (str(fmts),)
             self.formats = fmts
             self.extract_video_source = self.extract_video_source_custom
@@ -48,6 +48,8 @@ class IwaraExtractor(Extractor):
                 group_info = self.extract_media_info(image, "file", False)
                 group_info["user"] = (self.extract_user_info(image)
                                       if user is None else user)
+            except self.exc.ControlException:
+                raise
             except Exception as exc:
                 self.status |= 1
                 self.log.error("Failed to process image %s (%s: %s)",
@@ -91,6 +93,8 @@ class IwaraExtractor(Extractor):
                 info["count"] = info["num"] = 1
                 info["user"] = (self.extract_user_info(video)
                                 if user is None else user)
+            except self.exc.ControlException:
+                raise
             except Exception as exc:
                 self.status |= 1
                 self.log.traceback(exc)
@@ -139,7 +143,9 @@ class IwaraExtractor(Extractor):
             "comments": item.get("numComments"),
             "tags"    : [t["id"] for t in item.get("tags") or ()],
             "title"   : t.strip() if (t := item.get("title")) else "",
-            "description": t.strip() if (t := item.get("body")) else "",
+            "description" : t.strip() if (t := item.get("body")) else "",
+            "date"        : self.parse_datetime_iso(item.get("createdAt")),
+            "date_updated": self.parse_datetime_iso(item.get("updatedAt")),
         }
 
         if include_file_info:
@@ -149,9 +155,9 @@ class IwaraExtractor(Extractor):
             info["file_id"] = file_info.get("id")
             info["filename"] = filename
             info["extension"] = extension
-            info["date"] = self.parse_datetime_iso(
+            info["file_date"] = self.parse_datetime_iso(
                 file_info.get("createdAt"))
-            info["date_updated"] = self.parse_datetime_iso(
+            info["file_date_updated"] = self.parse_datetime_iso(
                 file_info.get("updatedAt"))
             info["mime"] = file_info.get("mime")
             info["size"] = file_info.get("size")
@@ -425,7 +431,7 @@ class IwaraAPI():
         sha_postfix = "mSvL05GfEmeEmsEYfGCnVpEjYgTJraJN"
         sha_key = f"{file_id}_{expires}_{sha_postfix}"
         hash = hashlib.sha1(sha_key.encode()).hexdigest()
-        headers = {"X-Version": hash, **self.headers}
+        headers = {**self.headers, "X-Version": hash}
         return self.extractor.request_json(file_url, headers=headers)
 
     def authenticate(self):
@@ -445,7 +451,7 @@ class IwaraAPI():
             }
             data = self.extractor.request_json(
                 url, method="POST", headers=self.headers, json=json,
-                fatal=False)
+                expected=(400,))
 
             if not (refresh_token := data.get("token")):
                 self.extractor.log.debug(data)
@@ -456,7 +462,7 @@ class IwaraAPI():
         self.extractor.log.info("Refreshing access token for %s", username)
 
         url = self.root + "/user/token"
-        headers = {"Authorization": "Bearer " + refresh_token, **self.headers}
+        headers = {**self.headers, "Authorization": "Bearer " + refresh_token}
         data = self.extractor.request_json(
             url, method="POST", headers=headers, fatal=False)
 

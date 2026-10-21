@@ -32,7 +32,7 @@ class RedgifsExtractor(Extractor):
         formats = self.config("format")
         if formats is None:
             formats = ("hd", "sd", "gif")
-        elif isinstance(formats, str):
+        elif formats.__class__ is str:
             formats = (formats, "hd", "sd", "gif")
         self.formats = formats
 

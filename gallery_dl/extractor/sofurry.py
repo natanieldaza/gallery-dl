@@ -98,13 +98,13 @@ class SofurryExtractor(Extractor):
 
     def _unpack(self, pack):
         def resolve(item):
-            if isinstance(item, dict):
+            if item.__class__ is dict:
                 return {
                     pack[int(key[1:])]: (resolve(pack[value])
                                          if value > 0 else None)
                     for key, value in item.items()
                 }
-            if isinstance(item, list):
+            if item.__class__ is list:
                 return [
                     resolve(pack[value]) if value > 0 else None
                     for value in item

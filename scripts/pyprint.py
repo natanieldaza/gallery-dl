@@ -10,7 +10,7 @@
 
 def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
 
-    if isinstance(obj, str):
+    if obj.__class__ is str:
         if obj.startswith("lit:"):
             return f'''{obj[4:]}'''
 
@@ -29,10 +29,10 @@ def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
 
         return f'''{prefix}{quote_beg}{obj}{quote_end}'''
 
-    if isinstance(obj, bytes):
+    if obj.__class__ is bytes:
         return f'''b"{str(obj)[2:-1]}"'''
 
-    if isinstance(obj, type):
+    if obj.__class__ is type:
         if obj.__module__ == "builtins":
             return f'''{obj.__name__}'''
 
@@ -41,7 +41,7 @@ def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
             name = f"_{name}"
         return f'''{name}.{obj.__name__}'''
 
-    if isinstance(obj, dict):
+    if obj.__class__ is dict:
         if not obj:
             return "{}"
         if len(obj) == 1 and oneline:
@@ -80,7 +80,7 @@ def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
         lines.append(f'''{ws}}}''')
         return "\n".join(lines)
 
-    if isinstance(obj, list):
+    if obj.__class__ is list:
         if not obj:
             return "[]"
         if len(obj) == 1 and oneline:
@@ -93,7 +93,7 @@ def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
         lines.append(f'''{ws}]''')
         return "\n".join(lines)
 
-    if isinstance(obj, tuple):
+    if obj.__class__ is tuple:
         if not obj:
             return "()"
         if len(obj) == 1:
@@ -110,7 +110,7 @@ def pyprint(obj, indent=0, sort=None, oneline=True, lmin=0, lmax=16):
         lines.append(f'''{ws})''')
         return "\n".join(lines)
 
-    if isinstance(obj, set):
+    if obj.__class__ is set:
         if not obj:
             return "set()"
         return f'''{{{", ".join(pyprint(v, indent+4, sort) for v in obj)}}}'''

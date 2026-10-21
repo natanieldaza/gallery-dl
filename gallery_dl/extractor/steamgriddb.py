@@ -141,7 +141,7 @@ class SteamgriddbAssetsExtractor(SteamgriddbExtractor):
 
     def config_list(self, key, type_name, valid_values):
         value = self.config(key)
-        if isinstance(value, str):
+        if value.__class__ is str:
             value = value.split(",")
 
         if value is None or "all" in value:

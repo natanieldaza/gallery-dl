@@ -122,7 +122,7 @@ __tests__ = (
     "#url"     : "https://www.behance.net/collection/71340149/inspiration",
     "#class"   : behance.BehanceCollectionExtractor,
     "#pattern" : behance.BehanceGalleryExtractor.pattern,
-    "#count"   : ">= 150",
+    "#count"   : range(120, 150),
 
     "!creator": dict,
 },

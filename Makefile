@@ -6,7 +6,7 @@ SHAREDIR ?= $(PREFIX)/share
 PYTHON ?= /usr/bin/env python3
 
 
-all: man completion supportedsites options requirements
+all: man completion supportedsites options
 
 clean:
 	$(RM) -r build/
@@ -26,6 +26,7 @@ executable:
 
 completion: data/completion/gallery-dl data/completion/_gallery-dl data/completion/gallery-dl.fish
 
+req: requirements
 requirements: requirements/docker requirements/windows requirements/linux requirements/macos
 
 man: data/man/gallery-dl.1 data/man/gallery-dl.conf.5

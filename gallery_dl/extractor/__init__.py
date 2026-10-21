@@ -310,7 +310,7 @@ def find(url):
 
 def add(cls):
     """Add 'cls' to the list of available extractors"""
-    if isinstance(cls.pattern, str):
+    if cls.pattern.__class__ is str:
         cls.pattern = re_compile(cls.pattern)
     _cache.append(cls)
     return cls
@@ -319,7 +319,7 @@ def add(cls):
 def add_module(module):
     """Add all extractors in 'module' to the list of available extractors"""
     if classes := _get_classes(module):
-        if isinstance(classes[0].pattern, str):
+        if classes[0].pattern.__class__ is str:
             for cls in classes:
                 cls.pattern = re_compile(cls.pattern)
         _cache.extend(classes)

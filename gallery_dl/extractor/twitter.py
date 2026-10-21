@@ -59,9 +59,9 @@ class TwitterExtractor(Extractor):
 
         self.articles = articles = self.config("articles", True)
         if articles:
-            if isinstance(articles, str):
+            if articles.__class__ is str:
                 articles = articles.split(",")
-            elif not isinstance(articles, (list, tuple)):
+            elif articles.__class__ is not list:
                 articles = {"meta", "cover", "media"}
             self._article_doc = ("doc" in articles or "document" in articles)
             self._article_html = ("html" in articles)
@@ -82,7 +82,7 @@ class TwitterExtractor(Extractor):
             self._size_image = "orig"
             self._size_fallback = ("4096x4096", "large", "medium", "small")
         else:
-            if isinstance(size, str):
+            if size.__class__ is str:
                 size = size.split(",")
             self._size_image = size[0]
             self._size_fallback = size[1:]
@@ -325,7 +325,7 @@ class TwitterExtractor(Extractor):
                            tweet["id_str"], card.get("rest_id"))
             return
 
-        if isinstance(bvals, list):
+        if bvals.__class__ is list:
             bvals = {bval["key"]: bval["value"]
                      for bval in card["binding_values"]}
 
@@ -796,7 +796,7 @@ class TwitterExtractor(Extractor):
         cursor = self.config("cursor", True)
         if not cursor:
             self._update_cursor = util.identity
-        elif isinstance(cursor, str):
+        elif cursor.__class__ is str:
             return cursor
 
     def _update_cursor(self, cursor):
@@ -952,7 +952,7 @@ class TwitterTimelineExtractor(TwitterExtractor):
         cursor = self.config("cursor", True)
         if not cursor:
             self._update_cursor = util.identity
-        elif isinstance(cursor, str):
+        elif cursor.__class__ is str:
             self._cursor = cursor
         else:
             cursor = None
@@ -1071,23 +1071,27 @@ class TwitterMediaExtractor(TwitterExtractor):
 class TwitterLikesExtractor(TwitterExtractor):
     """Extractor for liked tweets"""
     subcategory = "likes"
-    pattern = USER_PATTERN + r"/likes(?!\w)"
-    example = "https://x.com/USER/likes"
-
-    def metadata(self):
-        return {"user_likes": self.user}
+    pattern = BASE_PATTERN + r"/(i/history|[^/?#]+)/likes(?!\w)"
+    example = "https://x.com/i/history/likes"
 
     def tweets(self):
+        if self.user == "i/history":
+            if twid := self.cookies.get("twid", domain=self.cookies_domain):
+                self.user = "id:" + twid.rpartition("%3D")[2]
+            else:
+                raise self.exc.AuthRequired("'twid' cookie")
+        self.replies = True if self.replies else False
         return self.api.user_likes(self.user)
 
 
 class TwitterBookmarkExtractor(TwitterExtractor):
     """Extractor for bookmarked tweets"""
     subcategory = "bookmark"
-    pattern = BASE_PATTERN + r"/i/(?:history|bookmarks)()"
+    pattern = BASE_PATTERN + r"/i/(?:history|bookmarks)/?$()"
     example = "https://x.com/i/history"
 
     def tweets(self):
+        self.replies = True if self.replies else False
         return self.api.user_bookmarks()
 
     def _transform_tweet(self, tweet):
@@ -1225,6 +1229,9 @@ class TwitterTweetExtractor(TwitterExtractor):
             if not tweet_id:
                 break
             tweet = self.api.tweet_result_by_rest_id(tweet_id)
+            if "legacy" not in tweet:
+                self.log.debug("%s: %s", tweet_id, tweet)
+                break
             tweet["legacy"]["quoted_by_id_str"] = parent_id
             yield tweet
 
@@ -1516,7 +1523,12 @@ class TwitterAPI():
             "features"    : self._json_dumps(features),
             "fieldToggles": self._json_dumps(field_toggles),
         }
-        tweet = self._call(endpoint, params)["data"]["tweetResult"]["result"]
+        data = self._call(endpoint, params)
+        try:
+            tweet = data["data"]["tweetResult"]["result"]
+        except KeyError:
+            return data
+
         if "tweet" in tweet:
             tweet = tweet["tweet"]
 
@@ -2118,7 +2130,7 @@ class TwitterAPI():
         stop_tweets_max = stop_tweets
         api_retries = None
 
-        if isinstance(count := variables.get("count"), list):
+        if (count := variables.get("count")) and count.__class__ is list:
             count = count.copy()
             count.reverse()
             self.log.debug("Using 'count: %s'", count[-1])
@@ -2221,7 +2233,7 @@ class TwitterAPI():
             tweet = last_tweet = retry = None
             api_tries = 1
 
-            if pinned_tweet is not None and isinstance(pinned_tweet, dict):
+            if pinned_tweet is not None and pinned_tweet.__class__ is dict:
                 pinned_tweet["pinned"] = True
                 tweets.append(pinned_tweet)
                 pinned_tweet = None
@@ -2486,7 +2498,7 @@ class TwitterAPI():
         until = response.headers.get("x-rate-limit-reset")
         seconds = None if until else 60.0
 
-        if rl and isinstance(rl, str) and ":" in rl:
+        if rl and rl.__class__ is str and ":" in rl:
             rl, _, num = rl.partition(":")
             if rl == "abort":
                 amt = getattr(self, "_ratelimit_amt", 1)

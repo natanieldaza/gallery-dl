@@ -11,7 +11,7 @@ __tests__ = (
 {
     "#url"     : "https://filester.me/d/aPc9D5g",
     "#class"   : filester.FilesterFileExtractor,
-    "#pattern" : r"https://\w+\.filester\.me/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
 
     "date"     : "dt:2026-03-06 00:00:00",
     "extension": "png",
@@ -26,25 +26,40 @@ __tests__ = (
 {
     "#url"     : "https://filester.sh/d/aPc9D5g",
     "#class"   : filester.FilesterFileExtractor,
-    "#pattern" : r"https://\w+\.filester\.me/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
 },
 
 {
     "#url"     : "https://filester.si/d/aPc9D5g",
     "#class"   : filester.FilesterFileExtractor,
-    "#pattern" : r"https://\w+\.filester\.me/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
 },
 
 {
     "#url"     : "https://filester.gg/d/aPc9D5g",
     "#class"   : filester.FilesterFileExtractor,
-    "#pattern" : r"https://\w+\.filester\.me/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/7147825c-5216-4d2a-b126-0e98e0b58d13.png\?token=\w+\.\w{64}&download=true",
+},
+
+{
+    "#url"     : "https://filester.me/d/CZugnSU",
+    "#comment" : "password-protected file - no password (#467)",
+    "#class"   : filester.FilesterFileExtractor,
+    "#exception": "AuthRequired",
+},
+
+{
+    "#url"     : "https://filester.me/d/CZugnSU",
+    "#comment" : "password-protected file - correct password (#467)",
+    "#class"   : filester.FilesterFileExtractor,
+    "#options" : {"password": "abc123#?^DEF"},
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/33049bc6-36e6-4297-a107-37fcc8ba015b.jpg\?token=[0-9a-f.]+&download=true",
 },
 
 {
     "#url"     : "https://filester.me/f/1725bc5b793e8a4a",
     "#class"   : filester.FilesterFolderExtractor,
-    "#pattern" : r"https://\w+\.filester\.me/v2/[^/?#]+\?token=\w+\.\w{64}&download=true",
+    "#pattern" : r"https://fsc\d+.cdn.cr/v2/[^/?#]+\?token=\w+\.\w{64}&download=true",
 
     "count"      : 6,
     "num"        : range(1, 6),

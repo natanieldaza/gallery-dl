@@ -103,7 +103,7 @@ class AuthRequired(AuthorizationError):
 
     def __init__(self, auth=None, resource="resource", message=None):
         if auth:
-            if not isinstance(auth, str):
+            if auth.__class__ is not str:
                 auth = " or ".join(auth)
 
             if resource:
@@ -175,7 +175,7 @@ class StopExtraction(ControlException):
         if target is None:
             self.target = None
             self.depth = 1
-        elif isinstance(target, int):
+        elif target.__class__ is int:
             self.target = None
             self.depth = target
         elif target.isdecimal():

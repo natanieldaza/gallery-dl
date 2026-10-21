@@ -53,7 +53,7 @@ class CheveretoExtractor(BaseExtractor):
             if pw := getattr(self, "_password_last", None):
                 sources.append(pw)
             if pw := self.config("password"):
-                if isinstance(pw, str):
+                if pw.__class__ is str:
                     pw = pw.split(",")
                 sources.extend(pw)
             sources.reverse()

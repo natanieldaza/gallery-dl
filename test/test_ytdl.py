@@ -225,7 +225,7 @@ class Test_CommandlineArguments(unittest.TestCase):
         self.assertEqual(result, self.default)
 
     def _(self, cmdline, option=util.SENTINEL, expected=None):
-        if isinstance(cmdline, str):
+        if cmdline.__class__ is str:
             cmdline = [cmdline]
         result = ytdl.parse_command_line(self.module, cmdline)
         if option is not util.SENTINEL:

@@ -69,7 +69,7 @@ Consider all listed sites to potentially be NSFW.
 <tr id="8muses" title="8muses">
     <td>8muses</td>
     <td>https://comics.8muses.com/</td>
-    <td><span title="https://comics.8muses.com/comics/album/PATH/TITLE">Albums</span></td>
+    <td><span title="https://comics.8muses.com/porn/album/PATH/TITLE">Albums</span></td>
     <td></td>
 </tr>
 <tr id="myportfolio" title="myportfolio">
@@ -574,7 +574,7 @@ Consider all listed sites to potentially be NSFW.
 <tr id="fapello" title="fapello">
     <td>Fapello</td>
     <td>https://fapello.com/</td>
-    <td><span title="https://fapello.com/model/">Models</span> |
+    <td><span title="https://fapello.com/MODEL/">Models</span> |
         <span title="https://fapello.com/trending/">Videos | Trending Posts | Popular Videos | Top Models</span> |
         <span title="https://fapello.com/MODEL/12345/">Posts</span></td>
     <td></td>
@@ -703,7 +703,8 @@ Consider all listed sites to potentially be NSFW.
     <td>GoonBox</td>
     <td>https://goonbox.cr/</td>
     <td><span title="https://goonbox.cr/a/ID">Albums</span> |
-        <span title="https://goonbox.cr/img/ID">individual Images</span></td>
+        <span title="https://goonbox.cr/img/ID">individual Images</span> |
+        <span title="https://goonbox.cr/u/USER">User Profiles</span></td>
     <td></td>
 </tr>
 <tr id="harvardlawnuremberg" title="harvardlawnuremberg">
@@ -975,9 +976,9 @@ Consider all listed sites to potentially be NSFW.
 </tr>
 <tr id="kagane" title="kagane">
     <td>Kagane</td>
-    <td>https://kagane.to/</td>
-    <td><span title="https://kagane.to/series/MANGA_ID/reader/CHAPTER_ID">Chapters</span> |
-        <span title="https://kagane.to/series/MANGA_ID">Manga</span></td>
+    <td>https://kagane.si/<br>https://kagane.cx/<br>https://kagane.moe/<br>https://kagane.net/</td>
+    <td><span title="https://kagane.si/series/MANGA_ID/reader/CHAPTER_ID">Chapters</span> |
+        <span title="https://kagane.si/series/MANGA_ID">Manga</span></td>
     <td></td>
 </tr>
 <tr id="kaliscan" title="kaliscan">
@@ -1479,8 +1480,10 @@ Consider all listed sites to potentially be NSFW.
 <tr id="pornhub" title="pornhub">
     <td>Pornhub</td>
     <td>https://www.pornhub.com/</td>
-    <td><span title="https://www.pornhub.com/album/12345">Galleries</span> |
-        <span title="https://www.pornhub.com/gif/12345">Gifs</span> |
+    <td><span title="https://www.pornhub.com/model/USER/avatar">Avatars | Banners</span> |
+        <span title="https://www.pornhub.com/album/12345">Galleries</span> |
+        <span title="https://www.pornhub.com/gif/12345">GIFs</span> |
+        <span title="https://www.pornhub.com/model/USER/gifs">User GIFs</span> |
         <span title="https://www.pornhub.com/model/USER/photos">Photos</span> |
         <span title="https://www.pornhub.com/model/USER">User Profiles</span></td>
     <td></td>
@@ -1750,7 +1753,9 @@ Consider all listed sites to potentially be NSFW.
 <tr id="steamcommunity" title="steamcommunity">
     <td>Steam Community</td>
     <td>https://steamcommunity.com/</td>
-    <td><span title="https://steamcommunity.com/sharedfiles/filedetails/?id=12345">Sharedfiles</span></td>
+    <td><span title="https://steamcommunity.com/app/12345/screenshots/">Game Media</span> |
+        <span title="https://steamcommunity.com/sharedfiles/filedetails/?id=12345">Sharedfiles</span> |
+        <span title="https://steamcommunity.com/id/USER/screenshots/">User Media</span></td>
     <td></td>
 </tr>
 <tr id="steamgriddb" title="steamgriddb">
@@ -1844,6 +1849,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Toyhouse</td>
     <td>https://toyhou.se/</td>
     <td><span title="https://www.toyhou.se/USER/art">Art</span> |
+        <span title="https://www.toyhou.se/12345.CHARACTER/gallery">Character Galleries</span> |
         <span title="https://toyhou.se/~images/12345">individual Images</span></td>
     <td></td>
 </tr>
@@ -1906,7 +1912,7 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://x.com/home">Home Feed</span> |
         <span title="https://pbs.twimg.com/media/ABCDE?format=jpg&name=orig">individual Images</span> |
         <span title="https://x.com/USER/info">User Profile Information</span> |
-        <span title="https://x.com/USER/likes">Likes</span> |
+        <span title="https://x.com/i/history/likes">Likes</span> |
         <span title="https://x.com/i/lists/12345">Lists</span> |
         <span title="https://x.com/i/lists/12345/members">List Members</span> |
         <span title="https://x.com/USER/media">Media Timelines</span> |
@@ -3078,6 +3084,19 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://thirsthub.cc/threads/TITLE.12345/">Threads</span></td>
     <td></td>
 </tr>
+<tr id="darkwanderer" title="darkwanderer">
+    <td>Darkwanderer</td>
+    <td>https://darkwanderer.net/</td>
+    <td><span title="https://darkwanderer.net/forums/TITLE.123/">Forums</span> |
+        <span title="https://darkwanderer.net/media/albums/ALBUM.123/">Albums</span> |
+        <span title="https://darkwanderer.net/media/categories/CATEGORY.123/">Media Categories</span> |
+        <span title="https://darkwanderer.net/media/NAME.123/">Media Files</span> |
+        <span title="https://darkwanderer.net/media/users/USER.123/">User Media</span> |
+        <span title="https://darkwanderer.net/threads/TITLE.12345/post-54321">Posts</span> |
+        <span title="https://darkwanderer.net/members/USER.123/">Profiles</span> |
+        <span title="https://darkwanderer.net/threads/TITLE.12345/">Threads</span></td>
+    <td></td>
+</tr>
 
 <tr id="moebooru" title="moebooru">
     <td colspan="4"><strong>Moebooru and MyImouto</strong></td>
@@ -3230,6 +3249,18 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://mastodon.social/@USER">User Profiles</span></td>
     <td><a href="https://codeberg.org/mikf/gallery-dl#oauth">OAuth</a></td>
 </tr>
+<tr id="mastodon.art" title="mastodon.art">
+    <td>Mastodon.art</td>
+    <td>https://mastodon.art/</td>
+    <td><span title="https://mastodon.art/bookmarks">Bookmarks</span> |
+        <span title="https://mastodon.art/favourites">Favorites</span> |
+        <span title="https://mastodon.art/@USER/following">Followed Users</span> |
+        <span title="https://mastodon.art/tags/NAME">Hashtags</span> |
+        <span title="https://mastodon.art/lists/12345">Lists</span> |
+        <span title="https://mastodon.art/@USER/12345">Images from Statuses</span> |
+        <span title="https://mastodon.art/@USER">User Profiles</span></td>
+    <td></td>
+</tr>
 <tr id="pawoo" title="pawoo">
     <td>Pawoo</td>
     <td>https://pawoo.net/</td>
@@ -3253,6 +3284,18 @@ Consider all listed sites to potentially be NSFW.
         <span title="https://baraag.net/@USER/12345">Images from Statuses</span> |
         <span title="https://baraag.net/@USER">User Profiles</span></td>
     <td><a href="https://codeberg.org/mikf/gallery-dl#oauth">OAuth</a></td>
+</tr>
+<tr id="aethy" title="aethy">
+    <td>Aethy</td>
+    <td>https://aethy.com/</td>
+    <td><span title="https://aethy.com/bookmarks">Bookmarks</span> |
+        <span title="https://aethy.com/favourites">Favorites</span> |
+        <span title="https://aethy.com/@USER/following">Followed Users</span> |
+        <span title="https://aethy.com/tags/NAME">Hashtags</span> |
+        <span title="https://aethy.com/lists/12345">Lists</span> |
+        <span title="https://aethy.com/@USER/12345">Images from Statuses</span> |
+        <span title="https://aethy.com/@USER">User Profiles</span></td>
+    <td></td>
 </tr>
 
 <tr id="shopify" title="shopify">
@@ -3425,8 +3468,8 @@ Consider all listed sites to potentially be NSFW.
 </tr>
 <tr id="imxtw" title="imxtw">
     <td>Imxtw</td>
-    <td>https://imx.tw/</td>
-    <td><span title="https://imx.tw/ID">individual Images</span></td>
+    <td>https://imx.bz/</td>
+    <td><span title="https://imx.bz/ID">individual Images</span></td>
     <td></td>
 </tr>
 <tr id="picstate" title="picstate">

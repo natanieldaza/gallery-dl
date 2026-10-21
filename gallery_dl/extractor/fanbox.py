@@ -37,9 +37,9 @@ class FanboxExtractor(Extractor):
         self.fee_max = self.config("fee-max")
 
         if includes := self.config("metadata"):
-            if isinstance(includes, str):
+            if includes.__class__ is str:
                 includes = includes.split(",")
-            elif not isinstance(includes, (list, tuple)):
+            elif includes.__class__ is not list:
                 includes = ("user", "plan")
             self._meta_user = ("user" in includes)
             self._meta_plan = ("plan" in includes)

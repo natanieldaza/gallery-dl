@@ -33,9 +33,9 @@ class BoostyExtractor(Extractor):
 
         videos = self.config("videos")
         if videos is None or videos:
-            if isinstance(videos, str):
+            if videos.__class__ is str:
                 videos = videos.split(",")
-            elif not isinstance(videos, (list, tuple)):
+            elif videos.__class__ is not list:
                 # ultra_hd: 2160p
                 #  quad_hd: 1440p
                 #  full_hd: 1080p

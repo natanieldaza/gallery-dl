@@ -79,7 +79,7 @@ class BehanceExtractor(Extractor):
 
     def _update(self, data):
         # compress data to simple lists
-        if (fields := data.get("fields")) and isinstance(fields[0], dict):
+        if (fields := data.get("fields")) and fields[0].__class__ is dict:
             data["fields"] = [
                 field.get("name") or field.get("label")
                 for field in fields
@@ -91,7 +91,7 @@ class BehanceExtractor(Extractor):
         ]
 
         tags = data.get("tags") or ()
-        if tags and isinstance(tags[0], dict):
+        if tags and tags[0].__class__ is dict:
             tags = [tag["title"] for tag in tags]
         data["tags"] = tags
 
@@ -122,7 +122,7 @@ class BehanceGalleryExtractor(BehanceExtractor):
         BehanceExtractor._init(self)
 
         if modules := self.config("modules"):
-            if isinstance(modules, str):
+            if modules.__class__ is str:
                 modules = modules.split(",")
             self.modules = set(modules)
         else:
@@ -261,7 +261,7 @@ class BehanceUserExtractor(BehanceExtractor):
             info = items["pageInfo"]
             if not info["hasNextPage"]:
                 break
-            variables["afterItem"] = info["endCursor"]
+            variables["after"] = info["endCursor"]
 
 
 class BehanceCollectionExtractor(BehanceExtractor):

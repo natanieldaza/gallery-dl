@@ -403,6 +403,17 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://www.bellazon.com/main/topic/297-carla-bruni/page/112/#findComment-5975261",
+    "#comment" : "hidden images/videos (#489)",
+    "#class"   : bellazon.BellazonPostExtractor,
+    "#log"     : [
+        "'Image hidden for guests'",
+        "'Image hidden for guests'",
+        "'Image hidden for guests'",
+    ],
+},
+
+{
     "#url"     : "https://www.bellazon.com/main/topic/57872-millie-brady/",
     "#class"   : bellazon.BellazonThreadExtractor,
     "#pattern" : r"https://www\.bellazon\.com/main/uploads/monthly_\d+_\d+/.+\.jpg",

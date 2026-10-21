@@ -200,7 +200,7 @@ class TiktokExtractor(Extractor):
         self.subtitle_langs = None
 
         if self.subtitles and self.subtitles != "all":
-            if self.subtitles is True or not isinstance(self.subtitles, str):
+            if self.subtitles is True or self.subtitles.__class__ is not str:
                 self.subtitles = "ASR"
 
             known_sources = {"ASR", "MT", "LC"}
@@ -421,8 +421,8 @@ class TiktokExtractor(Extractor):
         # set cookie values
         domain = self.cookies_domain
         expires = int(time.time()) + 5
-        c["d"] = util.b64encode(str(idx).encode())
-        v = util.b64encode(util.json_dumps(c).encode())
+        c["d"] = util.b64rencode(str(idx).encode()).decode()
+        v = util.b64rencode(util.json_dumps(c).encode()).decode()
         self.cookies.set(wci, v, domain=domain, expires=expires)
         if rs:
             self.cookies.set(rci, rs, domain=domain, expires=expires)
@@ -485,7 +485,7 @@ class TiktokExtractor(Extractor):
         # This will include URLs pointing to the best quality videos.
         if "bitrateInfo" in video:
             bitrate_info = video["bitrateInfo"]
-            if not isinstance(bitrate_info, list):
+            if bitrate_info.__class__ is not list:
                 bitrate_info = [bitrate_info]
             bitrate_urls = {}
             for video_info in bitrate_info:

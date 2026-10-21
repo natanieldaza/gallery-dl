@@ -206,7 +206,7 @@ def remap_categories():
         )
     elif not cmap:
         return
-    elif isinstance(cmap, dict):
+    elif cmap.__class__ is dict:
         cmap = cmap.items()
 
     for old, new in cmap:
@@ -243,7 +243,7 @@ def load(files=None, strict=False, loads=None, conf=_config):
 
             if "subconfigs" in config:
                 if subconfigs := config["subconfigs"]:
-                    if isinstance(subconfigs, str):
+                    if subconfigs.__class__ is str:
                         subconfigs = (subconfigs,)
                     load(subconfigs, strict, loads, conf)
 
@@ -254,6 +254,7 @@ def clear():
 
 
 getg = _config.get
+setg = _config.__setitem__
 
 
 def get(path, key, default=None, conf=_config):
@@ -318,7 +319,7 @@ def accumulate(path, key, conf=_config):
     try:
         if key in conf:
             if value := conf[key]:
-                if isinstance(value, list):
+                if value.__class__ is list:
                     result.extend(value)
                 else:
                     result.append(value)
@@ -326,7 +327,7 @@ def accumulate(path, key, conf=_config):
             conf = conf[p]
             if key in conf:
                 if value := conf[key]:
-                    if isinstance(value, list):
+                    if value.__class__ is list:
                         result[:0] = value
                     else:
                         result.insert(0, value)

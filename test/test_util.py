@@ -808,6 +808,7 @@ class TestOther(unittest.TestCase):
         c = [1, "2", 3, 4, "5", "foo"]
         self.assertTrue(util.contains(c, 1))
         self.assertTrue(util.contains(c, "foo"))
+        self.assertTrue(util.contains(c, (1, 3, "5")))
         self.assertTrue(util.contains(c, [1, 3, "5"]))
         self.assertTrue(util.contains(c, ["a", "b", "5"]))
         self.assertFalse(util.contains(c, "bar"))

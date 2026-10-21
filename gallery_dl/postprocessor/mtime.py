@@ -29,13 +29,13 @@ class MtimePP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("file",) if self._file else ("post-after",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
 
     def run(self, pathfmt):
         if mtime := self._get(pathfmt.kwdict):
-            if isinstance(mtime, dt.datetime):
+            if mtime.__class__ is dt.datetime:
                 mtime = dt.to_ts(mtime)
             else:
                 mtime = text.parse_int(mtime)

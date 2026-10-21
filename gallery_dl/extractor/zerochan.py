@@ -104,7 +104,7 @@ class ZerochanExtractor(BooruExtractor):
 
     def _parse_entry_api(self, entry_id):
         url = f"{self.root}/{entry_id}?json"
-        txt = self.request(url).text
+        txt = self.request(url, expected=(500,)).text
         try:
             item = util.json_loads(txt)
         except ValueError:
@@ -171,7 +171,7 @@ class ZerochanTagExtractor(ZerochanExtractor):
             self.posts = self.posts_api
 
         if exts := self.config("extensions"):
-            if isinstance(exts, str):
+            if exts.__class__ is str:
                 exts = exts.split(",")
             self.exts = exts
         else:
@@ -237,13 +237,13 @@ class ZerochanTagExtractor(ZerochanExtractor):
         while True:
             try:
                 response = self.request(
-                    url, params=params, allow_redirects=False)
+                    url, params=params, expected=(500,), allow_redirects=False)
             except self.exc.HttpError as exc:
                 if exc.status == 404:
                     return
                 raise
 
-            if response.status_code >= 300:
+            if 300 <= response.status_code < 400:
                 url = text.urljoin(self.root, response.headers["location"])
                 self.log.warning("HTTP redirect to %s", url)
                 if self.config("redirects"):
@@ -254,9 +254,10 @@ class ZerochanTagExtractor(ZerochanExtractor):
                 data = response.json()
             except ValueError:
                 # strip HTML inserts in JSON data
-                if b"window.adsbygoogle" in response.content:
-                    page = response.text
-                    data = util.json_loads("{" + page[page.find('"items":'):])
+                page = response.text
+                data = util.json_loads(
+                    "{" + page[page.find('"items":'):page.rfind("}<")+1])
+                del page
 
             try:
                 posts = data["items"]

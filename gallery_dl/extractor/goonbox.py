@@ -111,3 +111,34 @@ class GoonboxAlbumExtractor(GoonboxExtractor):
                 params = {"page": 2}
             else:
                 params["page"] += 1
+
+
+class GoonboxUserExtractor(GoonboxExtractor):
+    subcategory = "user"
+    directory_fmt = ("{category}", "{user[username]}")
+    pattern = BASE_PATTERN + r"/u/([^/?#]+)"
+    example = "https://goonbox.cr/u/USER"
+
+    def images(self):
+        url = f"{self.root}/api/users/{self.groups[0]}"
+        self.kwdict["user"] = self.request_json(url)["user"]
+
+        url += "/images"
+        params = {"page": 1, "per_page": 100}
+        num = None
+
+        while True:
+            data = self.request_json(url, params=params)
+            pgn = data["pagination"]
+
+            if num is None:
+                self.kwdict["count"] = num = pgn["total"]
+
+            for img in data["images"]:
+                img["num"] = num
+                num -= 1
+                yield img
+
+            if pgn["current_page"] >= pgn["last_page"]:
+                break
+            params["page"] += 1

@@ -26,7 +26,7 @@ class ActionsPP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("prepare",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
 

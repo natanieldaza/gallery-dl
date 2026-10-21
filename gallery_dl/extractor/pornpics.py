@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2023-2025 Mike Fährmann
+# Copyright 2023-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -42,9 +42,8 @@ class PornpicsExtractor(Extractor):
         limit //= 2
 
         headers = {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
             "Referer": url if params["offset"] else self.root + "/",
-            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/json",
         }
 
         while True:
@@ -53,8 +52,8 @@ class PornpicsExtractor(Extractor):
             yield from galleries
 
             if len(galleries) < limit:
-                return
-            params["offset"] += limit
+                break
+            params["offset"] += len(galleries)
 
 
 class PornpicsGalleryExtractor(PornpicsExtractor, GalleryExtractor):
@@ -71,7 +70,7 @@ class PornpicsGalleryExtractor(PornpicsExtractor, GalleryExtractor):
     def metadata(self, page):
         extr = text.extract_from(page)
 
-        return {
+        data = {
             "gallery_id": text.parse_int(self.groups[1]),
             "slug"      : extr("/galleries/", "/").rpartition("-")[0],
             "title"     : text.unescape(extr("<h1>", "<")),
@@ -81,9 +80,15 @@ class PornpicsGalleryExtractor(PornpicsExtractor, GalleryExtractor):
             "categories": text.split_html(extr(
                 ">Categories:", '<span class="suggest')),
             "tags"      : text.split_html(extr(
-                ">Tags List:", ' </div>')),
+                ">Tags:", ' </div>')),
             "views"    : text.parse_int(extr(">Views:", "<").replace(",", "")),
         }
+        data["channel"].sort()
+        data["models"].sort()
+        data["categories"].sort()
+        data["tags"].sort()
+
+        return data
 
     def images(self, page):
         return [
@@ -110,9 +115,13 @@ class PornpicsSearchExtractor(PornpicsExtractor):
     example = "https://www.pornpics.com/?q=QUERY"
 
     def galleries(self):
+        query = self.groups[0]
+        if query.endswith("-1"):
+            query = query[:-2]
+
         url = self.root + "/search/srch.php"
         params = {
-            "q"     : self.groups[0].replace("-", " "),
+            "q"     : query.replace("-", " "),
             "lang"  : "en",
             "offset": 0,
         }

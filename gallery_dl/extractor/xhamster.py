@@ -43,7 +43,6 @@ class XhamsterGalleryExtractor(XhamsterExtractor):
             text.nameext_from_url(url, image)
             image["num"] = num
             image["extension"] = "webp"
-            del image["modelName"]
             yield Message.Url, url, image
 
     def metadata(self):
@@ -51,29 +50,29 @@ class XhamsterGalleryExtractor(XhamsterExtractor):
 
         gallery = data["galleryPage"]
         info = gallery["infoProps"]
-        model = gallery["galleryModel"]
         author = info["authorInfoProps"]
+        user = info["subscribeButtonProps"]
+        crumbs = gallery["breadCrumbsProps"]["breadCrumbs"]
+        photos = gallery["photoItems"]
 
         return {
             "user":
             {
-                "id"         : text.parse_int(model["userId"]),
+                "id"         : text.parse_int(user["id"]),
                 "url"        : author["authorLink"],
                 "name"       : author["authorName"],
                 "verified"   : True if author.get("verified") else False,
-                "subscribers": info["subscribeButtonProps"]["subscribers"],
+                "subscribers": user["subscribers"],
             },
             "gallery":
             {
                 "id"         : text.parse_int(gallery["id"]),
                 "tags"       : [t["label"] for t in info["categoriesTags"]],
-                "date"       : self.parse_timestamp(model["created"]),
-                "views"      : text.parse_int(model["views"]),
-                "likes"      : text.parse_int(model["rating"]["likes"]),
-                "dislikes"   : text.parse_int(model["rating"]["dislikes"]),
-                "title"      : model["title"],
-                "description": model["description"],
-                "thumbnail"  : model["thumbURL"],
+                "date"       : self.parse_timestamp(author["createdDate"]),
+                "views"      : text.parse_int(info["viewsInfoProps"]["views"]),
+                "title"      : crumbs[-1]["name"] if crumbs else "",
+                "description": info["description"],
+                "thumbnail"  : photos[0]["imgSrcset"] if photos else "",
             },
             "count": text.parse_int(gallery["photosCount"]),
         }
@@ -83,7 +82,16 @@ class XhamsterGalleryExtractor(XhamsterExtractor):
         self.data = None
 
         while True:
-            yield from data["galleryPage"]["galleryModel"]["photos"]
+            for photo in data["galleryPage"]["photoItems"]:
+                yield {
+                    "id"      : photo["id"],
+                    "imageURL": photo["imgSrc"],
+                    "thumbURL": photo["imgSrcset"],
+                    "pageURL" : photo["link"],
+                    "comments": photo["commentsCount"],
+                    "width"   : photo["originWidth"],
+                    "height"  : photo["originHeight"],
+                }
 
             pagination = data["galleryPage"]["paginationProps"]
             if pagination["currentPageNumber"] >= pagination["lastPageNumber"]:

@@ -52,18 +52,18 @@ class TapasExtractor(Extractor):
             "Referer" : url,
         }
         data = {
-            "from"    : "https://tapas.io/",
+            "from"    : self.root + "/",
             "email"   : username,
             "password": password,
         }
-        response = self.request(
-            url, method="POST", headers=headers, data=data)
+        response = self.request(url, method="POST", headers=headers, data=data,
+                                allow_redirects=False)
 
-        if not response.history or \
-                "/account/signin_fail" in response.history[-1].url:
+        if not (location := response.headers.get("Location")) or \
+                "/account/signin_fail" in location:
             raise self.exc.AuthenticationError()
 
-        return {"_cpc_": response.history[0].cookies.get("_cpc_")}
+        return {cookie.name: cookie.value for cookie in response.cookies}
 
     def request_api(self, url, params=None):
         headers = {"Accept": "application/json, text/javascript, */*;"}

@@ -4,19 +4,22 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://kagane.to/"""
+"""Extractors for https://kagane.org/"""
 
 from .common import ChapterExtractor, MangaExtractor
 from .. import text
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?kagane\.(?:to|org)"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?kagane\.(?:si|cx|moe|net|to|org)"
 
 
 class KaganeBase():
     """Base class for kagane extractors"""
     category = "kagane"
-    root = "https://kagane.to"
-    root_api = "https://kagane.to"
+    root = root_api = "https://kagane.si"
+
+    def __init__(self, match):
+        self.root = self.root_api = text.root_from_url(match[0])
+        super().__init__(match)
 
     def _integrity(self):
         return self.request_json(
@@ -33,7 +36,7 @@ class KaganeBase():
                 for alt in data["series_alternate_titles"]
             ],
             "type": data["format"],
-            "content_rating": data["content_rating"],
+            "content_rating": data["age_rating"],
             "status": data["publication_status"],
             "rating": data["average_rating"],
             "manga_date": self.parse_datetime_iso(data.get("created_at")),
@@ -41,14 +44,13 @@ class KaganeBase():
             "tags": [t["tag_name"] for t in data.get("tags") or ()],
             "lang": "en",
             "language": "English",
-            "_chapters": data["series_books"],
         }
 
 
 class KaganeChapterExtractor(KaganeBase, ChapterExtractor):
     """Extractor for kagane manga chapters"""
     pattern = BASE_PATTERN + r"(/series/([\w-]+)/reader/([\w-]+))"
-    example = "https://kagane.to/series/MANGA_ID/reader/CHAPTER_ID"
+    example = "https://kagane.si/series/MANGA_ID/reader/CHAPTER_ID"
 
     def metadata(self, page):
         chstr = text.unescape(text.extr(
@@ -63,7 +65,7 @@ class KaganeChapterExtractor(KaganeBase, ChapterExtractor):
         volume, chapter, minor, title = match.groups()
 
         return {
-            **self.cache(self._manga_info, self.groups[1]),
+            **self.cache(self._manga_info, self.groups[1][-36:]),
             "chapter_id": self.groups[2],
             "title": title or "",
             "volume": text.parse_int(volume),
@@ -73,7 +75,7 @@ class KaganeChapterExtractor(KaganeBase, ChapterExtractor):
         }
 
     def images(self, page):
-        cid = self.groups[2]
+        cid = self.groups[2][-36:]
         url = f"{self.root_api}/api/v2/books/{cid}"
         headers = {"x-integrity-token": self.cache(
             self._integrity, _key=None, _exp=300, _mem=False)}
@@ -91,24 +93,36 @@ class KaganeMangaExtractor(KaganeBase, MangaExtractor):
     chapterclass = KaganeChapterExtractor
     reverse = False
     pattern = BASE_PATTERN + r"/series/([\w-]+)"
-    example = "https://kagane.to/series/MANGA_ID"
+    example = "https://kagane.si/series/MANGA_ID"
 
     def chapters(self, page):
-        mid = self.groups[0]
+        mid = self.groups[0][-36:]
         manga = self.cache(self._manga_info, mid)
         base = f"{self.root}/series/{mid}/reader/"
 
+        url = f"{self.root_api}/api/v2/series/{mid}/books/index?fields=List"
+        cinfo = self.request_json(url)
+
+        #  0	"book_id"
+        #  1	"sort_no"
+        #  2	"chapter_no"
+        #  3	"volume_no"
+        #  4	"group_ix"
+        #  5	"released_at"
+        #  6	"title"
+        #  7	"page_count"
+        #  8	"published_on"
+        #  9	"internal_release"
+
         results = []
-        for ch in manga["_chapters"]:
-            chapter, sep, minor = ch["chapter_no"].partition(".")
-            results.append((base + ch["book_id"], {
+        for ch in cinfo["books"]:
+            chapter, sep, minor = ch[2].partition(".")
+            results.append((base + ch[0], {
                 **manga,
-                **ch,
-                "volume": text.parse_int(ch.get("volume_no")),
+                "volume": text.parse_int(ch[3]),
                 "chapter": text.parse_int(chapter),
                 "chapter_minor": sep + minor,
-                "chapter_id": ch["book_id"],
-                "views": text.parse_int(ch["views"]),
-                "date": self.parse_datetime_iso(ch["created_at"]),
+                "chapter_id": ch[0],
+                "date": self.parse_timestamp(ch[5]),
             }))
         return results

@@ -70,9 +70,9 @@ class PawchiveExtractor(Extractor):
         exts_thmb = util.EXTS_IMAGE
 
         if duplicates := self.config("duplicates"):
-            if isinstance(duplicates, str):
+            if duplicates.__class__ is str:
                 duplicates = set(duplicates.split(","))
-            elif isinstance(duplicates, (list, tuple)):
+            elif duplicates.__class__ is list:
                 duplicates = set(duplicates)
             else:
                 duplicates = {"file", "attachment", "inline"}
@@ -127,12 +127,12 @@ class PawchiveExtractor(Extractor):
             if comments:
                 post["comments"] = cmts = self.api.creator_post_comments(
                     service, creator_id, post["id"])
-                if not isinstance(cmts, list):
+                if cmts.__class__ is not list:
                     self.log.debug("%s/%s: %s", creator_id, post["id"], cmts)
                     post["comments"] = ()
 
             if tags := post.get("tags"):
-                if isinstance(tags, str):
+                if tags.__class__ is str:
                     post["tags"] = tags[1:-1].replace('"', '').split(",")
             else:
                 post["tags"] = ()
@@ -158,7 +158,9 @@ class PawchiveExtractor(Extractor):
                 if "\\" in path:
                     file["path"] = path = path.replace("\\", "/")
 
-                if path[0] == "/":
+                if "url" in file:
+                    pass
+                elif path[0] == "/":
                     file["url"] = f"{self.root_dl}/data{path}"
                 else:
                     file["url"] = path
@@ -220,7 +222,8 @@ class PawchiveExtractor(Extractor):
                         yield Message.Url, file["url"], post
                 else:
                     for post["num"], file in enumerate(files, 1):
-                        if not file.get("preview_only"):
+                        if not file.get("preview_only") or \
+                                file.get("deferred"):
                             url = file["url"]
                             file["original"] = True
                             if previews and file["extension"] in exts_thmb:
@@ -251,28 +254,35 @@ class PawchiveExtractor(Extractor):
         if not file or "path" not in file:
             return ()
         file["type"] = "file"
+        if file.get("deferred"):
+            self._extract_deferred(post, file)
         return (file,)
 
     def _extract_attachments(self, post):
-        for att in post["attachments"]:
-            att["type"] = "attachment"
-            if "deferred" in att and att["deferred"]:
-                if not self.deferred:
-                    if att.get("temp_url"):
-                        post["deferred"] = True
-                elif url := att.get("temp_url"):
-                    post["deferred"] = True
-                    if text.ext_from_url(url) == "m3u8":
-                        att["path"] = "ytdl:" + url
-                        att["_ytdl_manifest"] = "hls"
-                        att["_ytdl_manifest_headers"] = post["_http_headers"]
-                    else:
-                        att["path"] = url
-                else:
-                    att["deferred"] = False
-                    self.log.debug("%s: Missing 'deferred' file link (%s)",
-                                   post["id"], att["name"])
+        for file in post["attachments"]:
+            file["type"] = "attachment"
+            if file.get("deferred"):
+                self._extract_deferred(post, file)
         return post["attachments"]
+
+    def _extract_deferred(self, post, file):
+        if not self.deferred:
+            if file.get("temp_url"):
+                post["deferred"] = True
+        elif url := file.get("temp_url"):
+            post["deferred"] = True
+            if text.ext_from_url(url) == "m3u8":
+                file["url"] = "ytdl:" + url
+                file["_ytdl_manifest"] = "hls"
+                file["_ytdl_manifest_headers"] = post["_http_headers"]
+            else:
+                file["url"] = url
+            if "path" not in file:
+                file["path"] = url
+        else:
+            file["deferred"] = False
+            self.log.debug("%s: Missing 'deferred' file link (%s)",
+                           post["id"], file["name"])
 
     def _extract_inline(self, post):
         for path in self._find_inline(post.get("content") or ""):
@@ -289,7 +299,7 @@ class PawchiveExtractor(Extractor):
             "attachments": self._extract_attachments,
             "inline"     : self._extract_inline,
         }
-        if isinstance(filetypes, str):
+        if filetypes.__class__ is str:
             filetypes = filetypes.split(",")
         return [genmap[ft] for ft in filetypes]
 

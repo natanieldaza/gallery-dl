@@ -616,7 +616,7 @@ class TestFormatter(unittest.TestCase):
             path_filters = os.path.join(tmpdirname, "jinja_filters.py")
             path_template = os.path.join(tmpdirname, "jinja_template.txt")
 
-            config.set((), "jinja", {
+            config.setg("jinja", {
                 "environment": {
                     "variable_start_string": "(((",
                     "variable_end_string"  : ")))",

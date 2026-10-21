@@ -28,7 +28,7 @@ class DanbooruExtractor(BaseExtractor):
         self.includes = False
 
         threshold = self.config("threshold")
-        if isinstance(threshold, int):
+        if threshold.__class__ is int:
             self.threshold = 1 if threshold < 1 else threshold
         else:
             self.threshold = self.per_page - 20
@@ -55,9 +55,9 @@ class DanbooruExtractor(BaseExtractor):
         # 'includes' initialization must be done here and not in '_init()'
         # or it'll cause an exception with e621 when 'metadata' is enabled
         if includes := self.config("metadata"):
-            if isinstance(includes, (list, tuple)):
+            if includes.__class__ is list:
                 includes = ",".join(includes)
-            elif not isinstance(includes, str):
+            elif includes.__class__ is not str:
                 includes = "artist_commentary,children,notes,parent,uploader"
             self.includes = includes + ",id"
 
@@ -135,7 +135,7 @@ class DanbooruExtractor(BaseExtractor):
         first = True
         while True:
             posts = self.request_json(url, params=params)
-            if isinstance(posts, dict):
+            if posts.__class__ is dict:
                 posts = posts["posts"]
 
             if posts:
@@ -295,7 +295,7 @@ class DanbooruRandomExtractor(DanbooruTagExtractor):
     def posts(self):
         posts = self.request_json(self.root + "/posts/random.json",
                                   params={"tags": self.tags or None})
-        return (posts,) if isinstance(posts, dict) else posts
+        return (posts,) if posts.__class__ is dict else posts
 
 
 class DanbooruPoolExtractor(DanbooruExtractor):

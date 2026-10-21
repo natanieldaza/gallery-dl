@@ -41,13 +41,13 @@ class MetadataPP(PostProcessor):
             ext = None
         elif mode == "custom" or not mode and cfmt:
             self.write = self._write_custom
-            if isinstance(cfmt, list):
+            if cfmt.__class__ is list:
                 cfmt = "\n".join(cfmt) + "\n"
             self._content_fmt = formatter.parse(cfmt).format_map
             ext = "txt"
         elif mode == "print":
             nl = "\n"
-            if isinstance(cfmt, list):
+            if cfmt.__class__ is list:
                 cfmt = f"{nl.join(cfmt)}{nl}"
             if cfmt[-1] != nl and (cfmt[0] != "\f" or cfmt[1] == "F"):
                 cfmt = f"{cfmt}{nl}"
@@ -78,7 +78,7 @@ class MetadataPP(PostProcessor):
                 self._base = lambda p: base_directory
 
         directory = options.get("directory")
-        if isinstance(directory, list):
+        if directory.__class__ is list:
             self._directory = self._directory_format
             self._directory_formatters = [
                 formatter.parse(dirfmt, util.NONE).format_map
@@ -106,7 +106,7 @@ class MetadataPP(PostProcessor):
         events = options.get("event")
         if events is None:
             events = ("file",)
-        elif isinstance(events, str):
+        elif events.__class__ is str:
             events = events.split(",")
         job.register_hooks({event: self.run for event in events}, options)
 
@@ -231,18 +231,18 @@ class MetadataPP(PostProcessor):
         if not (tags := kwdict.get("tags") or kwdict.get("tag_string")):
             return ""
 
-        if isinstance(tags, str):
+        if tags.__class__ is str:
             taglist = tags.split(", ")
             if len(taglist) < len(tags) / 16:
                 taglist = tags.split(" ")
             tags = taglist
-        elif isinstance(tags[0], dict):
+        elif tags[0].__class__ is dict:
             # pixiv "tags": "original"
             tags = [
                 tag
                 for tagdict in tags
                 for tag in tagdict.values()
-                if isinstance(tag, str)
+                if tag.__class__ is str
             ]
             tags.sort()
 
@@ -255,13 +255,13 @@ class MetadataPP(PostProcessor):
 
     def _make_filter(self, options):
         if include := options.get("include"):
-            if isinstance(include, str):
+            if include.__class__ is str:
                 include = include.split(",")
             return lambda d: {k: d[k] for k in include if k in d}
 
         private = options.get("private")
         if exclude := options.get("exclude"):
-            if isinstance(exclude, str):
+            if exclude.__class__ is str:
                 exclude = exclude.split(",")
             exclude = set(exclude)
 

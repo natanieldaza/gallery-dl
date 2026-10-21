@@ -160,9 +160,9 @@ class FantiaExtractor(Extractor):
             blog_text = ""
             for op in comment_json.get("ops") or ():
                 insert = op.get("insert")
-                if isinstance(insert, str):
+                if insert.__class__ is str:
                     blog_text += insert
-                elif isinstance(insert, dict) and "fantiaImage" in insert:
+                elif insert.__class__ is dict and "fantiaImage" in insert:
                     img = insert["fantiaImage"]
                     files.append({"file_id" : img["id"],
                                   "file_url": self.root + img["original_url"]})

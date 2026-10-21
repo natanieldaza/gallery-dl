@@ -328,6 +328,21 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
             for tag in text.extract_iter(page, 'hentai.org/tag/', '"')
         ]
 
+        data["comments"] = comments = extr(
+            'id="cdiv"', '<div id="chd"').split('class="c1">')
+        del comments[0]
+        for idx, comment in enumerate(comments):
+            extr = text.extract_from(comment)
+            comments[idx] = {
+                "date" : self.parse_datetime(extr(
+                    ">Posted on ", " by: "), "%d %B %Y, %H:%M"),
+                "user" : text.unquote(extr("/uploader/", '"')),
+                "id"   : text.parse_int(extr('id="comment_score_', '"'), 0),
+                "score": text.parse_int(extr(">", "<"), 0),
+                "text" : extr('id="comment_', "") or text.unescape(extr(
+                    ">", '</div><div class="c')),
+            }
+
         return data
 
     def metadata_from_api(self, update=True):

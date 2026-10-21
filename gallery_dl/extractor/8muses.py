@@ -21,16 +21,14 @@ class _8musesAlbumExtractor(Extractor):
     archive_fmt = "{hash}"
     root = "https://comics.8muses.com"
     pattern = (r"(?:https?://)?(?:comics\.|www\.)?8muses\.com"
-               r"(/comics/album/[^?#]+)(\?[^#]+)?")
-    example = "https://comics.8muses.com/comics/album/PATH/TITLE"
-
-    def __init__(self, match):
-        Extractor.__init__(self, match)
-        self.path = match[1]
-        self.params = match[2] or ""
+               r"/(?:porn|comics)/(album/[^?#]+)(\?[^#]+)?")
+    example = "https://comics.8muses.com/porn/album/PATH/TITLE"
 
     def items(self):
-        url = self.root + self.path + self.params
+        path, params = self.groups
+        if params is None:
+            params = ""
+        url = f"{self.root}/porn/{path}{params}"
 
         while True:
             data = self._unobfuscate(text.extr(
@@ -42,7 +40,7 @@ class _8musesAlbumExtractor(Extractor):
                 album = self._make_album(data["album"])
                 yield Message.Directory, "", {"album": album, "count": count}
                 for num, image in enumerate(images, 1):
-                    url = self.root + "/image/fl/" + image["publicUri"]
+                    url = f"{self.root}/image/fl/{image['publicUri']}"
                     img = {
                         "url"      : url,
                         "page"     : num,
@@ -60,19 +58,21 @@ class _8musesAlbumExtractor(Extractor):
                         self.log.debug("Private album")
                         continue
 
-                    url = self.root + "/comics/album/" + permalink
+                    url = f"{self.root}/porn/album/{permalink}"
                     yield Message.Queue, url, {
                         "url"       : url,
-                        "name"      : album["name"],
-                        "private"   : album["isPrivate"],
+                        "name"      : (album.get("name") or
+                                       album.get("displayName")),
+                        "private"   : album.get("isPrivate"),
                         "_extractor": _8musesAlbumExtractor,
                     }
 
             if data["page"] >= data["pages"]:
                 return
-            path, _, num = self.path.rstrip("/").rpartition("/")
-            path = path if num.isdecimal() else self.path
-            url = f"{self.root}{path}/{data['page'] + 1}{self.params}"
+            tail, _, head = path.rstrip("/").rpartition("/")
+            if head.isdecimal():
+                path = tail
+            url = f"{self.root}/porn/{path}/{data['page'] + 1}{params}"
 
     def _make_album(self, album):
         return {
@@ -80,7 +80,7 @@ class _8musesAlbumExtractor(Extractor):
             "path"   : album["path"].split("/"),
             "title"  : album["name"],
             "private": album["isPrivate"],
-            "url"    : self.root + "/comics/album/" + album["permalink"],
+            "url"    : f"{self.root}/porn/album/{album['permalink']}",
             "parent" : text.parse_int(album["parentId"]),
             "views"  : text.parse_int(album["numberViews"]),
             "likes"  : text.parse_int(album["numberLikes"]),
