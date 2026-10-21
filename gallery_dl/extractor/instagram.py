@@ -1537,6 +1537,10 @@ class InstagramAPI():
             "PolarisThreadsStyleCommentsEnabledrelayprovider": False,
             "__relay_internal__pv__"
             "PolarisReelsRecoDebugOverlayEnabledrelayprovider": False,
+            # immich patch: declared by the query since ~2026-10-21; omitting
+            # it fails with 'missing_required_variable_value'.
+            "__relay_internal__pv__"
+            "PolarisSEOIsCrawlerrelayprovider": False,
         }
 
         return self._pagination_graphql(
