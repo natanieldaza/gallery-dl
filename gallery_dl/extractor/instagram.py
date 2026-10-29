@@ -61,6 +61,7 @@ class InstagramExtractor(Extractor):
         # Discovered lazily on the first single-post fallback and reused for the
         # whole run. None = not looked up yet, "" = looked up and not found.
         self._post_doc_id = None
+        self._post_doc_flags = {}
 
         self.cookies.set(
             "csrftoken", self.csrf_token, domain=self.cookies_domain)
@@ -1273,17 +1274,24 @@ class InstagramAPI():
         sc = shortcode_from_id(shortcode) if shortcode.isdigit() else (
             shortcode[:-28] if len(shortcode) > 28 else shortcode)
         doc_id = self._discover_post_doc_id(sc) or _POST_DOC_ID
+        # The relay provider flags are not optional padding: omit one and the
+        # query is rejected outright ('execution error', HTTP 200, ~90 bytes,
+        # which surfaces only as "No results"). Instagram adds new ones without
+        # notice (PolarisThreadsStyleCommentsEnabled, 2026-10), so the set the
+        # page itself sends wins; the pinned ones only cover a discovery miss.
+        variables = {
+            "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider"
+            : False,
+            "__relay_internal__pv__PolarisMultiCaptionCarouselEnabled"
+            "relayprovider": False,
+            "__relay_internal__pv__PolarisThreadsStyleCommentsEnabled"
+            "relayprovider": False,
+        }
+        variables.update(self.extractor._post_doc_flags)
+        variables["shortcode"] = sc
         data = {
             "doc_id"   : doc_id,
-            # The relay provider flags are not optional padding: omit them and
-            # the query is rejected outright ('execution error').
-            "variables": util.json_dumps({
-                "shortcode": sc,
-                "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider"
-                : False,
-                "__relay_internal__pv__PolarisMultiCaptionCarouselEnabled"
-                "relayprovider": False,
-            }),
+            "variables": util.json_dumps(variables),
         }
         response = self._call(
             "https://www.instagram.com/graphql/query", method="POST", data=data)
@@ -1360,6 +1368,12 @@ class InstagramAPI():
                 })
             match = _POST_DOC_ID_RE(response.text)
             doc_id = match[1] if match else ""
+            if match:
+                self.extractor._post_doc_flags = {
+                    key: value
+                    for key, value in util.json_loads(match[2]).items()
+                    if key.startswith("__relay_internal__pv__")
+                }
         except Exception as exc:
             self.extractor.log.debug(
                 "instagram doc_id discovery failed for %s (%s)", shortcode, exc)
@@ -1855,13 +1869,14 @@ def shortcode_from_id(post_id):
     return util.bencode(int(post_id), _ALPHABET)
 
 
-# Pulls the CURRENT doc_id out of the Relay preloader manifest embedded in a
-# post's HTML. Keyed on the query NAME, not position: the manifest lists a dozen
+# Pulls the CURRENT doc_id (group 1) and the variables the page sends with it
+# (group 2, for the relay provider flags) out of the Relay preloader manifest
+# embedded in a post's HTML. Keyed on the query NAME, not position: the manifest lists a dozen
 # queries (feed prefetch, stories tray, comments, related grid) and their order
 # is not stable.
 _POST_DOC_ID_RE = text.re(
-    r'"queryID":"(\d+)"[^{}]*"variables":\{"shortcode":'
-    r'[^{}]*\},"queryName":"PolarisPostRootQuery"').search
+    r'"queryID":"(\d+)"[^{}]*"variables":(\{"shortcode":'
+    r'[^{}]*\}),"queryName":"PolarisPostRootQuery"').search
 
 # Last-resort pin for PolarisPostRootQuery, used only if discovery fails.
 # Instagram rotates these, so it WILL go stale — that is expected and no longer
