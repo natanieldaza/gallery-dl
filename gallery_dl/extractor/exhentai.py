@@ -153,7 +153,7 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
         self.original = self.config("original", True)
 
     def finalize(self, status):
-        if not status or not self.data:
+        if not status or not self.data or "num" not in self.data:
             return
 
         if self.mpv:
@@ -614,7 +614,8 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
             raise self.exc.AuthorizationError()
         if page.startswith(("Key missing", "Gallery not found")):
             raise self.exc.NotFoundError("gallery")
-        if page.count("hentai.org/mpv/") > 1:
+        if self.config("mpv", True) and ">Multi-Page Viewer</a><" in page and \
+                page[:page.find('id="cdiv"')].count("hentai.org/mpv/") > 1:
             if self.gallery_token is None:
                 raise self.exc.AbortExtraction(
                     "'/s/' URLs in MPV mode are not supported")

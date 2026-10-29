@@ -11,14 +11,19 @@ __tests__ = (
 {
     "#url"     : "https://mixdrop.ag/f/k0mmklw8axe09e",
     "#class"   : mixdrop.MixdropFileExtractor,
-    "#pattern" : r"https://\w+.mxcontent.net/v2/k0mmklw8axe09e.mp4\?s=\w+&e=\d+&_t=\d+",
+    "#pattern" : r"https://[\w-]+.mxcontent.net/v2/k0mmklw8axe09e.mp4\?s=[\w-]+&e=\d+&_t=\d+",
     "#count"   : 1,
 
     "id"       : "k0mmklw8axe09e",
     "title"    : "Leeds United vs Arsenal - 31012026",
-    "poster"   : r"re:https://\w+.mxcontent.net/thumbs/k0mmklw8axe09e_5x5.jpg",
+    "poster"   : r"re:https://[\w-]+.mxcontent.net/thumbs/k0mmklw8axe09e_5x5.jpg",
     "filename" : "9ae814bc8aaacd419119cb1e8393c29c",
     "extension": "mp4",
+},
+
+{
+    "#url"     : "https://mxdrop.click/f/k0mmklw8axe09e",
+    "#class"   : mixdrop.MixdropFileExtractor,
 },
 
 {

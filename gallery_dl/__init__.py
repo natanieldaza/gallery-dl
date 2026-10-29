@@ -178,9 +178,16 @@ def main():
             log.debug("Python %s - %s",
                       platform.python_version(), platform.platform())
             try:
-                log.debug("requests %s - urllib3 %s",
+                import certifi
+                certifi_version = " - certifi " + certifi.__version__
+            except Exception:
+                certifi_version = ""
+
+            try:
+                log.debug("requests %s - urllib3 %s%s",
                           requests.__version__,
-                          requests.packages.urllib3.__version__)
+                          requests.packages.urllib3.__version__,
+                          certifi_version)
             except AttributeError:
                 pass
 

@@ -3348,6 +3348,17 @@ Description
     * Provides exact ``date`` and ``filesize``
 
 
+extractor.exhentai.mpv
+----------------------
+Type
+    ``bool``
+Default
+    ``true``
+Description
+    Download image galleries in MPV mode
+    if available and enabled in your account settings.
+
+
 extractor.exhentai.original
 ---------------------------
 Type
@@ -4199,9 +4210,12 @@ Description
 Supported Values
     * ``posts``
     * ``reels``
+    * ``photos``
     * ``tagged``
+    * ``reposts``
     * ``stories``
     * ``highlights``
+    * ``highlights-covers``
     * ``info``
     * ``avatar``
 Note

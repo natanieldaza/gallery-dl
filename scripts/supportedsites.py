@@ -608,6 +608,11 @@ URL_MAP = {
     "hatenablog": (
         "https://hatena.blog/",
     ),
+    "idolcomplex": (
+        "https://www.idolcomplex.com/",
+        "https://idol.sankakucomplex.com/",
+        "https://iapi.sankakucomplex.com/",
+    ),
     "iwara": (
         "https://www.iwara.tv/",
         "https://www.iwara.ai/",

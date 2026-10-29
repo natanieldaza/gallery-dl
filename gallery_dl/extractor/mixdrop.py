@@ -9,7 +9,8 @@
 from .common import Extractor, Message
 from .. import text
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?m[1i]xdrop\.(?:com|net|top|ag|bz)"
+BASE_PATTERN = (r"(?:https?://)?(?:www\.)?m[1i]?xdrop"
+                r"\.(?:ag|com|net|top|bz|click)")
 
 
 class MixdropFileExtractor(Extractor):

@@ -17,20 +17,14 @@ BASE_PATTERN = r"(?:https?://)?(?:www\.)?instagram\.com"
 USER_PATTERN = BASE_PATTERN + r"/(?!(?:p|tv|reel|explore|stories)/)([^/?#]+)"
 
 QUERIES = {
-    "PolarisProfilePostsTabContentQuery_connection":
-        ("39229011733413759", ""),
-    "PolarisProfileReelsTabContentQuery_connection":
-        ("28989741540630190", "/reels"),
-    "PolarisProfileTaggedTabContentQuery_connection":
-        ("28794602806842110", "/tagged"),
-    "PolarisProfileStoryHighlightsTrayContentQuery":
-        ("26970053832668570", ""),
-    "PolarisStoriesV3ReelPageGalleryQuery":
-        ("28262315486766731", ""),
-    "PolarisStoriesV3TrayContainerQuery":
-        ("27703822975903310", ""),
-    "PolarisProfilePageContentQuery":
-        ("28649589871350527", ""),
+    "PolarisProfilePostsTabContentQuery_connection" : "28544666141895803",
+    "PolarisProfileReelsTabContentQuery_connection" : "29285972954340351",
+    "PolarisProfileTaggedTabContentQuery_connection": "28474042942277898",
+    "PolarisProfileRepostsTabContentRefetchQuery"   : "39686700687609779",
+    "PolarisProfileStoryHighlightsTrayContentQuery" : "26970053832668570",
+    "PolarisStoriesV3ReelPageGalleryQuery"          : "29306733562261201",
+    "PolarisStoriesV3TrayContainerQuery"            : "38657722893875056",
+    "PolarisProfilePageContentQuery"                : "28717443601247930",
 }
 
 
@@ -242,17 +236,18 @@ class InstagramExtractor(Extractor):
     def _parse_post(self, post):
         if "items" in post:  # story or highlight
             items = post["items"]
+            user = post.get("user") or self._user
             reel_type, _, reel_id = str(post["id"]).rpartition(":")
             if reel_type or post.get("reel_type") == "highlight_reel":
                 post_url = f"{self.root}/stories/highlights/{reel_id}/"
                 expires = None
                 reel_type = "highlight"
             else:
-                post_url = f"{self.root}/stories/{post['user']['username']}/"
+                post_url = f"{self.root}/stories/{user.get('username')}/"
                 expires = post["seen"] + 86400
                 reel_type = "story"
             data = {
-                "user"   : post.get("user"),
+                "user"   : user,
                 "expires": self.parse_timestamp(expires),
                 "post_id": reel_id,
                 "post_shortcode": shortcode_from_id(reel_id),
@@ -270,8 +265,9 @@ class InstagramExtractor(Extractor):
                     img.setdefault("width", 0)
                     img.setdefault("height", 0)
                     items.insert(0, {
-                        "pk": f"{reel_id}_cover",
-                        "code": reel_id,
+                        "pk"  : reel_id + "_cover",
+                        "code": shortcode_from_id(reel_id),
+                        "type": "cover",
                         "taken_at": post["seen"],
                         "image_versions2": {"candidates": (img,)}})
 
@@ -310,9 +306,9 @@ class InstagramExtractor(Extractor):
 
             if coauthors := post.get("coauthor_producers"):
                 data["coauthors"] = [
-                    {"id"       : user["pk"],
-                     "username" : user["username"],
-                     "full_name": user["full_name"]}
+                    {"id"       : user.get("pk") or user.get("id"),
+                     "username" : user.get("username"),
+                     "full_name": user.get("full_name")}
                     for user in coauthors
                 ]
 
@@ -362,8 +358,8 @@ class InstagramExtractor(Extractor):
             else:
                 items = (post,)
 
-        owner = post["user"]
-        data["owner_id"] = owner["pk"]
+        owner = post["user"] or {}
+        data["owner_id"] = owner.get("pk")
         data["username"] = owner.get("username")
         data["fullname"] = owner.get("full_name")
         data["post_date"] = data["date"] = self.parse_timestamp(
@@ -907,10 +903,12 @@ class InstagramUserExtractor(Dispatch, InstagramExtractor):
             (InstagramAvatarExtractor    , base + "avatar/"),
             (InstagramStoriesExtractor   , stories),
             (InstagramHighlightsExtractor, base + "highlights/"),
+            (InstagramHighlightsCoversExtractor, base + "highlights/covers/"),
             (InstagramPostsExtractor     , base + "posts/"),
             (InstagramPhotosExtractor    , base + "photos/"),
             (InstagramReelsExtractor     , base + "reels/"),
             (InstagramTaggedExtractor    , base + "tagged/"),
+            (InstagramRepostsExtractor   , base + "reposts/"),
         ), ("posts",))
 
 
@@ -975,7 +973,24 @@ class InstagramTaggedExtractor(InstagramExtractor):
 
     def posts(self):
         for post in self.api.user_tagged(self.item):
-            yield from self.api.media(post["code"])
+            if post.get("product_type") == "feed":
+                yield post
+            else:
+                yield from self.api.media(post["code"])
+
+
+class InstagramRepostsExtractor(InstagramExtractor):
+    """Extractor for an Instagram user's reposts"""
+    subcategory = "reposts"
+    pattern = USER_PATTERN + r"/reposts"
+    example = "https://www.instagram.com/USER/reposts/"
+
+    def posts(self):
+        for post in self.api.user_reposts(self.item):
+            if post.get("product_type") == "feed":
+                yield post
+            else:
+                yield from self.api.media(post["code"])
 
 
 class InstagramSavedExtractor(InstagramExtractor):
@@ -1069,6 +1084,20 @@ class InstagramStoriesExtractor(InstagramExtractor):
                 reels.append(copy)
 
         return reels
+
+
+class InstagramHighlightsCoversExtractor(InstagramExtractor):
+    """Extractor for an Instagram user's story highlight covers"""
+    subcategory = "highlights-covers"
+    pattern = USER_PATTERN + r"/(?:highlights/)?covers"
+    example = "https://www.instagram.com/USER/highlights/covers/"
+
+    def posts(self):
+        self._highlight_covers = True
+        tray = self.api.highlights_tray(self.item)
+        for hl in tray:
+            hl["items"] = []
+        return tray
 
 
 class InstagramHighlightsExtractor(InstagramExtractor):
@@ -1393,8 +1422,6 @@ class InstagramAPI():
             "reel_ids"       : reel_ids,
             "first": 3,
             "last" : 2,
-            "__relay_internal__pv__"
-            "PolarisCommunityNoteStoriesLabelEnabledrelayprovider": True,
         }
 
         return self._pagination_graphql(
@@ -1461,20 +1488,6 @@ class InstagramAPI():
         variables = {
             "enable_integrity_filters": True,
             "id"                      : user_id,
-            "__relay_internal__pv__"
-            "PolarisCannesGuardianExperienceEnabledrelayprovider": True,
-            "__relay_internal__pv__"
-            "PolarisCASB976ProfileEnabledrelayprovider": False,
-            "__relay_internal__pv__"
-            "PolarisProfileInformTreatmentBannerEnabledrelayprovider": False,
-            "__relay_internal__pv__"
-            "PolarisWebSchoolsEnabledrelayprovider": False,
-            "__relay_internal__pv__"
-            "PolarisProfileRingsGradientEnabledrelayprovider": False,
-            "__relay_internal__pv__"
-            "PolarisRepostsConsumptionEnabledrelayprovider": True,
-            "__relay_internal__pv__"
-            "PolarisShortDramaEnabledrelayprovider": True,
         }
 
         try:
@@ -1544,16 +1557,6 @@ class InstagramAPI():
             "last"    : None,
             "username": self.user(handle)["username"],
             "__relay_internal__pv__"
-            "PolarisMultiCaptionCarouselEnabledrelayprovider": True,
-            "__relay_internal__pv__"
-            "PolarisShortDramaEnabledrelayprovider": True,
-            "__relay_internal__pv__"
-            "PolarisThreadsStyleCommentsEnabledrelayprovider": False,
-            "__relay_internal__pv__"
-            "PolarisReelsRecoDebugOverlayEnabledrelayprovider": False,
-            # immich patch: declared by the query since ~2026-10-21; omitting
-            # it fails with 'missing_required_variable_value'.
-            "__relay_internal__pv__"
             "PolarisSEOIsCrawlerrelayprovider": False,
         }
 
@@ -1565,7 +1568,7 @@ class InstagramAPI():
         user_id = str(self.user(handle)["id"])
 
         variables = {
-            "after": "",
+            "after": None,
             "data" : {
                 "include_feed_video": True,
                 "page_size": 12,
@@ -1573,13 +1576,35 @@ class InstagramAPI():
             },
             "first": 12,
             "id": user_id,
-            "__relay_internal__pv__"
-            "PolarisShortDramaEnabledrelayprovider": False,
         }
 
         return self._pagination_graphql(
             "PolarisProfileReelsTabContentQuery_connection", variables,
-            "fetch__XDTUserDict")
+            "fetch__XDTUserDict", "/reels")
+
+    def user_reposts(self, handle):
+        variables = {
+            "max_id": None,
+            "id"    : str(self.user(handle)["id"]),
+        }
+
+        return self._pagination_graphql(
+            "PolarisProfileRepostsTabContentRefetchQuery", variables,
+            "fetch__XDTUserDict", "/reposts")
+
+    def user_tagged(self, handle):
+        variables = {
+            "after"  : None,
+            "before" : None,
+            "count"  : 12,
+            "first"  : 12,
+            "last"   : None,
+            "user_id": str(self.user(handle)["id"]),
+        }
+
+        return self._pagination_graphql(
+            "PolarisProfileTaggedTabContentQuery_connection", variables,
+            "xdt_api__v1__usertags__user_id__feed_connection", "/tagged")
 
     def user_followers(self, user_id):
         endpoint = f"/v1/friendships/{user_id}/followers/"
@@ -1595,22 +1620,6 @@ class InstagramAPI():
         endpoint = "/v1/feed/saved/posts/"
         params = {"count": 50}
         return self._pagination(endpoint, params, media=True)
-
-    def user_tagged(self, handle):
-        variables = {
-            "after"  : None,
-            "before" : None,
-            "count"  : 12,
-            "first"  : 12,
-            "last"   : None,
-            "user_id": str(self.user(handle)["id"]),
-            "__relay_internal__pv__"
-            "PolarisShortDramaEnabledrelayprovider": True,
-        }
-
-        return self._pagination_graphql(
-            "PolarisProfileTaggedTabContentQuery_connection", variables,
-            "xdt_api__v1__usertags__user_id__feed_connection")
 
     def _extract_fb_tokens(self, path):
         extr = self.extractor
@@ -1635,35 +1644,40 @@ class InstagramAPI():
         extr.log.debug("Found 'lsd=%s' & 'fb_dtsg=%s'", lsd, dtsg)
         return lsd, dtsg
 
-    def _extract_docid(self, opname, path):
+    def _extract_opname_info(self, opname, path):
         extr = self.extractor
-        extr.log.debug("Looking up '%s' doc_id value", opname)
+        extr.log.debug("Collecting GraphQL parameters")
 
-        docid_map = self._extract_docid_map(path)
-        for name, docid in docid_map.items():
-            extr.cache_update(self._extract_docid, name, docid,
-                              _exp=86400, _mem=False)
-        return docid_map[opname]
-
-    def _extract_docid_map(self, path):
-        extr = self.extractor
-        docid_map = {}
-
+        opname_map = {}
+        params_map = {}
         base = "https://static.cdninstagram.com/rsrc.php/"
-        pattern = text.re(
-            r'__d\("(\w+)_instagramRelayOperation",\[\],'
-            r'\(function\([^)]+\).+?\bexports="([^"]+)')
+        opnames = "|".join(QUERIES)
+        docids_pattern = text.re(
+            rf'__d\("({opnames})_instagramRelayOperation",\[\],'
+            rf'\(function\([^)]+\).+?\bexports="([^"]+)')
+        params_pattern = text.re(
+            rf'__d\("({opnames})(?:\.graphql|\$Parameters)",\[([^\]]+)\]')
+
         for href in util.unique(text.extract_iter(
                 extr.cache(self._webpage, path), 'href="' + base, '"')):
             if not href.endswith(".js"):
                 continue
             url = base + text.unescape(href)
             script = extr.request(url, interval=False).text
-            for opname, docid in pattern.findall(script):
-                if opname in QUERIES:
-                    docid_map[opname] = docid
+            for name, docid in docids_pattern.findall(script):
+                opname_map[name] = docid
+            for name, params in params_pattern.findall(script):
+                if not params_map.get(name):
+                    params_map[name] = [
+                        param[1:-15] for param in params.split(",")
+                        if param.endswith('.relayprovider"')]
 
-        return docid_map
+        for name, docid in opname_map.items():
+            opname_map[name] = info = (docid, params_map.get(name))
+            extr.cache_update(self._extract_opname_info, name, info,
+                              _exp=86400, _mem=False)
+
+        return opname_map[opname]
 
     def _webpage(self, path):
         headers = {
@@ -1679,17 +1693,23 @@ class InstagramAPI():
         return extr.request(f"{extr.root}{path}/", headers=headers,
                             interval=False).text
 
-    def _prepare_graphql(self, opname, fieldname=None):
+    def _prepare_graphql(self, opname, variables, fieldname=None, path=""):
         extr = self.extractor
         root = extr.root
 
-        doc_id, path = QUERIES[opname]
         if extr._user:
             path = f"/{extr._user['username']}{path}"
+        elif path:
+            path = "/instagram" + path
 
         fb_lsd, fb_dtsg = self._extract_fb_tokens(path)
-        doc_id = extr.cache(self._extract_docid, opname, path,
-                            _exp=86400, _mem=False) or doc_id
+        docid, params = extr.cache(self._extract_opname_info, opname, path,
+                                   _exp=86400, _mem=False)
+        if params:
+            for param in params:
+                name = f"__relay_internal__pv__{param}relayprovider"
+                value = (param != "PolarisSEOIsCrawler")
+                variables.setdefault(name, value)
 
         headers = {
             "Accept"            : "*/*",
@@ -1728,8 +1748,8 @@ class InstagramAPI():
             "fb_api_caller_class": "RelayModern",
             "fb_api_req_friendly_name": opname,
             "server_timestamps": "true",
-            "variables": None,
-            "doc_id"   : doc_id,
+            "variables": util.json_dumps(variables),
+            "doc_id"   : docid or QUERIES[opname],
         }
 
         return headers, body
@@ -1756,22 +1776,24 @@ class InstagramAPI():
         extr = self.extractor
 
         kwargs["method"] = "POST"
-        kwargs["headers"], body = self._prepare_graphql(opname)
+        kwargs["headers"], body = self._prepare_graphql(opname, variables)
         kwargs["data"] = body
-        body["variables"] = util.json_dumps(variables)
 
         extr.log.debug("%s (%s)", opname, body["doc_id"])
         extr.log.debug(body["variables"])
-        response = extr.request(extr.root + "/api/graphql", **kwargs)
+        result = extr.request(extr.root + "/api/graphql", **kwargs).text
 
+        data = None
         try:
-            return util.json_loads(response.text)["data"]
+            data = util.json_loads(result)
+            return data["data"]
         except (ValueError, KeyError) as exc:
-            extr.status |= 1
-            extr.log.debug("Server response:\n%s", response.text)
-            extr.log.error("Failed to load API data (%s: %s)",
-                           exc.__class__.__name__, exc)
-            raise
+            extr.log.debug("Server response:\n%s", result)
+            if data and (err := data.get("errors")):
+                msg = f"'{err[0]['message']}'"
+            else:
+                msg = f"{exc.__class__.__name__}: {exc}"
+            raise self.exc.AbortExtraction(f"Failed to load API data ({msg})")
 
     def _pagination(self, endpoint, params=None, media=False):
         if params is None:
@@ -1820,45 +1842,65 @@ class InstagramAPI():
                 return extr._update_cursor(None)
             params["max_id"] = extr._update_cursor(next_max_id)
 
-    def _pagination_graphql(self, opname, variables, fieldname, route=None):
+    def _pagination_graphql(self, opname, variables, fieldname, path=""):
         extr = self.extractor
         url = extr.root + "/graphql/query"
 
-        headers, body = self._prepare_graphql(opname, fieldname)
-        variables["after"] = extr._init_cursor()
-        while True:
-            headers["X-CSRFToken"] = extr.csrf_token
-            body["variables"] = util.json_dumps(variables)
+        if "max_id" in variables:
+            variables["max_id"] = extr._init_cursor()
+        else:
+            variables["after"] = extr._init_cursor()
+        headers, body = self._prepare_graphql(
+            opname, variables, fieldname, path)
 
+        while True:
             extr.log.debug("%s (%s)", opname, body["doc_id"])
             extr.log.debug(body["variables"])
-            response = extr.request(
-                url, method="POST", headers=headers, data=body)
+            headers["X-CSRFToken"] = extr.csrf_token
+            result = extr.request(
+                url, method="POST", headers=headers, data=body).text
 
+            data = None
             try:
-                data = util.json_loads(response.text)["data"][fieldname]
+                data = util.json_loads(result)
+                data = data["data"][fieldname]
             except (ValueError, KeyError) as exc:
-                extr.status |= 1
-                extr.log.debug("Server response:\n%s", response.text)
-                extr.log.error("Failed to load API data (%s: %s)",
-                               exc.__class__.__name__, exc)
-                raise
-
-            if "edges" not in data:
-                for value in data.values():
-                    if value.__class__ is dict and "edges" in value:
-                        data = value
-                        break
+                extr.log.debug("Server response:\n%s", result)
+                if data and (err := data.get("errors")):
+                    msg = f"'{err[0]['message']}'"
                 else:
+                    msg = f"{exc.__class__.__name__}: {exc}"
+                raise self.exc.AbortExtraction(
+                    f"Failed to load API data ({msg})")
+
+            if "max_id" in variables:
+                data = data["user_reposts_timeline"]
+
+                for item in data["repost_grid_items"]:
+                    yield item["media"]
+
+                if not data.get("repost_more_available"):
                     break
+                variables["max_id"] = extr._update_cursor(
+                    data["repost_next_max_id"])
+            else:
+                if "edges" not in data:
+                    for value in data.values():
+                        if value.__class__ is dict and "edges" in value:
+                            data = value
+                            break
+                    else:
+                        break
 
-            for edge in data["edges"]:
-                yield edge["node"]
+                for edge in data["edges"]:
+                    yield edge["node"]
 
-            info = data.get("page_info")
-            if not info or not info.get("has_next_page"):
-                break
-            variables["after"] = extr._update_cursor(info["end_cursor"])
+                info = data.get("page_info")
+                if not info or not info.get("has_next_page"):
+                    break
+                variables["after"] = extr._update_cursor(info["end_cursor"])
+
+            body["variables"] = util.json_dumps(variables)
 
 
 def id_from_shortcode(shortcode):

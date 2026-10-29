@@ -62,6 +62,16 @@ __tests__ = (
 },
 
 {
+    "#url"     : "https://iapi.sankakucomplex.com/en/?tags=lyumos",
+    "#class"   : idolcomplex.IdolcomplexTagExtractor,
+},
+
+{
+    "#url"     : "https://iapi.sankakucomplex.com/?tags=lyumos",
+    "#class"   : idolcomplex.IdolcomplexTagExtractor,
+},
+
+{
     "#url"     : "https://www.idolcomplex.com/en/pools/e9PMwnwRBK3",
     "#category": ("booru", "idolcomplex", "pool"),
     "#class"   : idolcomplex.IdolcomplexPoolExtractor,
@@ -109,7 +119,7 @@ __tests__ = (
     },
     "category"        : "idolcomplex",
     "change"          : 2121180,
-    "comment_count"   : None,
+    "comment_count"   : 0,
     "created_at"      : 1511560888,
     "date"            : "dt:2017-11-24 22:01:28",
     "extension"       : "jpg",

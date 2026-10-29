@@ -17,16 +17,21 @@ class LensdumpBase():
     category = "lensdump"
     root = "https://lensdump.com"
 
+    def _init(self):
+        self.cookies.set("ld_nsfw_ok", "1", domain="lensdump.com")
+
     def _pagination(self, page, begin, end):
         while True:
             yield from text.extract_iter(page, begin, end)
 
-            next = text.extr(page, ' data-pagination="next"', '>')
+            pos = page.find(" data-load-more ")
+            if pos < 0:
+                break
+            next = text.rextr(page, 'data-src="', '"', pos)
             if not next:
-                return
+                break
 
-            url = text.urljoin(self.root, text.extr(next, 'href="', '"'))
-            page = self.request(url).text
+            page = self.request(self.root + text.unescape(next)).text
 
 
 class LensdumpAlbumExtractor(LensdumpBase, GalleryExtractor):
@@ -50,26 +55,32 @@ class LensdumpAlbumExtractor(LensdumpBase, GalleryExtractor):
         }
 
     def images(self, page):
-        for image in self._pagination(page, ' class="list-item ', '>'):
+        for image in self._pagination(page, '<a class="tile" ', '>'):
 
             data = util.json_loads(text.unquote(
                 text.extr(image, "data-object='", "'") or
                 text.extr(image, 'data-object="', '"')))
-            image_id = data.get("name")
-            image_url = data.get("url")
+            image = data["image"]
+            user = data.get("user")
+            name = data.get("filename")
+
+            image_id = name[:name.rfind(".")]
+            image_url = image.get("url")
             image_title = data.get("title")
             if image_title is not None:
                 image_title = text.unescape(image_title)
 
             yield (image_url, {
                 "id"       : image_id,
-                "url"      : image_url,
+                "url"      : image.get("url"),
                 "title"    : image_title,
                 "name"     : data.get("filename"),
                 "filename" : image_id,
                 "extension": data.get("extension"),
                 "width"    : text.parse_int(data.get("width")),
                 "height"   : text.parse_int(data.get("height")),
+                "size"     : text.parse_int(image.get("size")),
+                "user"     : user.get("username") if user else "",
             })
 
 
@@ -88,10 +99,10 @@ class LensdumpAlbumsExtractor(LensdumpBase, Extractor):
             params = {"sort": "date_asc", "page": "1"}
         page = self.request(url, params=params).text
 
+        base = self.root + "/a/"
         data = {"_extractor": LensdumpAlbumExtractor}
-        for album_path in self._pagination(page, 'data-url-short="', '"'):
-            album_url = text.urljoin(self.root, album_path)
-            yield Message.Queue, album_url, data
+        for album_code in self._pagination(page, 'data-code="', '"'):
+            yield Message.Queue, base + album_code, data
 
 
 class LensdumpImageExtractor(LensdumpBase, Extractor):
@@ -116,10 +127,10 @@ class LensdumpImageExtractor(LensdumpBase, Extractor):
             "url"   : extr(
                 'property="og:image" content="', '"'),
             "width" : text.parse_int(extr(
-                'property="image:width" content="', '"')),
+                'property="og:image:width" content="', '"')),
             "height": text.parse_int(extr(
-                'property="image:height" content="', '"')),
-            "date"  : self.parse_datetime_iso(extr('<span title="', '"')),
+                'property="og:image:height" content="', '"')),
+            "date"  : self.parse_datetime_iso(extr('datetime="', '"')),
         }
 
         text.nameext_from_url(data["url"], data)

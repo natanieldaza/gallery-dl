@@ -139,10 +139,40 @@ def process_content(html, content):
         html.append('" style="width:100%;height:100%;" preload="auto" cont'
                     'rols=""></video></div></div></div>')
 
+    elif type == "da-poll":
+        attrs = content["attrs"]
+        html.append(f'<div class="surface-tertiary ds-surface-tertiary '
+                    f'it8jUA" data-da-type="da-poll" '
+                    f'data-poll-id="{attrs["pollId"]}" '
+                    f'data-version="{attrs["version"]}" '
+                    f'role="group"><div class="zdtYXB">')
+        for element in content["content"]:
+            process_poll(html, element)
+        html.append('</div></div>')
+
     else:
         import logging
         logging.getLogger("tiptap").warning(
             "Unsupported content type '%s'", type)
+
+
+def process_poll(html, content):
+    type = content["type"]
+
+    if type == "da-poll-question":
+        html.append('<div class="sVKe97" data-da-type="da-poll-question">')
+        for element in content["content"]:
+            process_content(html, element)
+        html.append('</div>')
+
+    elif type == "da-poll-answer":
+        html.append(f'<div class="rHP9pk KMlBpr" '
+                    f'data-da-type="da-poll-answer" '
+                    f'data-answer-id="{content["attrs"]["answerId"]}">'
+                    f'<div class="yU6XHu">')
+        for element in content["content"]:
+            process_content(html, element)
+        html.append('</div></div>')
 
 
 def process_text(html, content):

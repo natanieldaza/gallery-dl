@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018-2023 Mike Fährmann
+# Copyright 2018-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,7 @@ class PiczelExtractor(Extractor):
     filename_fmt = "{category}_{id}_{title}_{num:>02}.{extension}"
     archive_fmt = "{id}_{num}"
     root = "https://piczel.tv"
-    root_api = root
+    root_api = "https://api.piczel.tv"
 
     def items(self):
         for post in self.posts():
@@ -51,16 +51,15 @@ class PiczelExtractor(Extractor):
         """Return an iterable with all relevant post objects"""
 
     def _pagination(self, url, pnum=1):
-        params = {"page": pnum}
-
-        while True:
-            data = self.request_json(url, params=params)
+        while pnum:
+            data = self.request_json(url + str(pnum))
 
             yield from data["data"]
 
-            params["page"] = data["meta"]["next_page"]
-            if not params["page"]:
-                return
+            try:
+                pnum = data["meta"]["next_page"]
+            except Exception:
+                break
 
 
 class PiczelUserExtractor(PiczelExtractor):
@@ -70,7 +69,7 @@ class PiczelUserExtractor(PiczelExtractor):
     example = "https://piczel.tv/gallery/USER"
 
     def posts(self):
-        url = f"{self.root_api}/api/users/{self.groups[0]}/gallery"
+        url = f"{self.root_api}/users/{self.groups[0]}/gallery/"
         return self._pagination(url)
 
 
@@ -83,7 +82,7 @@ class PiczelFolderExtractor(PiczelExtractor):
     example = "https://piczel.tv/gallery/USER/12345"
 
     def posts(self):
-        url = f"{self.root_api}/api/gallery/folder/{self.groups[0]}"
+        url = f"{self.root_api}/gallery/folder/{self.groups[0]}/page/"
         return self._pagination(url)
 
 
@@ -94,5 +93,5 @@ class PiczelImageExtractor(PiczelExtractor):
     example = "https://piczel.tv/gallery/image/12345"
 
     def posts(self):
-        url = f"{self.root_api}/api/gallery/{self.groups[0]}"
+        url = f"{self.root_api}/gallery/{self.groups[0]}"
         return (self.request_json(url),)

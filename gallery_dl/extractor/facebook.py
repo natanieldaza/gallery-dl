@@ -345,13 +345,6 @@ class FacebookExtractor(Extractor):
 
             i += 1
 
-    def _extract_profile(self, profile, set_id=False):
-        if set_id:
-            url = f"{self.root}/{profile}/photos_by"
-        else:
-            url = f"{self.root}/{profile}"
-        return self._extract_profile_page(url)
-
     def _extract_profile_page(self, url):
         for _ in range(self.fallback_retries + 1):
             page = self.request(url).text
@@ -632,7 +625,8 @@ class FacebookInfoExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/info"
 
     def items(self):
-        user = self.cache(self._extract_profile, self.groups[0])
+        url = f"{self.root}/{self.groups[0]}"
+        user = self.cache(self._extract_profile_page, url)
         return iter(((Message.Directory, "", user.copy()),))
 
 
@@ -676,9 +670,12 @@ class FacebookPhotosExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/photos"
 
     def items(self):
-        profile = self.cache(self._extract_profile, self.groups[0], True)
-        set_id = profile["set_id"]
+        url = f"{self.root}/{self.groups[0]}/photos_by"
+        profile = self.cache(self._extract_profile_page, url)
+        set_id = profile.get("set_id")
+
         if not set_id:
+            self.log.warning("Failed to extract profile 'set_id'")
             return iter(())
 
         set_url = f"{self.root}/media/set/?set={set_id}"
@@ -700,7 +697,8 @@ class FacebookAvatarExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/avatar"
 
     def items(self):
-        user = self.cache(self._extract_profile, self.groups[0])
+        url = f"{self.root}/{self.groups[0]}/photos_by"
+        user = self.cache(self._extract_profile_page, url)
 
         if avatar_page := user.get("profilePhoto"):
             avatar_page_url = avatar_page["url"]

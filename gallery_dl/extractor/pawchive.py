@@ -254,23 +254,21 @@ class PawchiveExtractor(Extractor):
         if not file or "path" not in file:
             return ()
         file["type"] = "file"
-        if file.get("deferred"):
-            self._extract_deferred(post, file)
+        self._extract_deferred(post, file)
         return (file,)
 
     def _extract_attachments(self, post):
         for file in post["attachments"]:
             file["type"] = "attachment"
-            if file.get("deferred"):
-                self._extract_deferred(post, file)
+            self._extract_deferred(post, file)
         return post["attachments"]
 
     def _extract_deferred(self, post, file):
         if not self.deferred:
             if file.get("temp_url"):
-                post["deferred"] = True
+                post["deferred"] = file["deferred"] = True
         elif url := file.get("temp_url"):
-            post["deferred"] = True
+            post["deferred"] = file["deferred"] = True
             if text.ext_from_url(url) == "m3u8":
                 file["url"] = "ytdl:" + url
                 file["_ytdl_manifest"] = "hls"
@@ -279,10 +277,10 @@ class PawchiveExtractor(Extractor):
                 file["url"] = url
             if "path" not in file:
                 file["path"] = url
-        else:
+        elif file.get("deferred"):
             file["deferred"] = False
             self.log.debug("%s: Missing 'deferred' file link (%s)",
-                           post["id"], file["name"])
+                           post["id"], file.get("name") or file.get("path"))
 
     def _extract_inline(self, post):
         for path in self._find_inline(post.get("content") or ""):

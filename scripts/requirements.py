@@ -13,6 +13,7 @@ import re
 import argparse
 import requests
 
+REQUIREMENTS = {}
 session = None
 results = {}
 
@@ -23,10 +24,13 @@ def package_hashes(pkg, args):
         session = requests.Session()
 
     pkg, eq, version = pkg.partition("==")
-    if eq:
+    if pkg in REQUIREMENTS:
+        u = f"https://pypi.org/pypi/{pkg}/{REQUIREMENTS[pkg]}/json"
+    elif version:
         u = f"https://pypi.org/pypi/{pkg}/{version}/json"
     else:
         u = f"https://pypi.org/pypi/{pkg}/json"
+
     d = session.get(u).json()
     if not (i := d.get("info")):
         return
@@ -299,6 +303,10 @@ def main():
     if args.update is not None:
         update(args)
     if args.pkgs:
+        for pkg in args.pkgs:
+            pkg, eq, version = pkg.partition("==")
+            if eq:
+                REQUIREMENTS[pkg] = version
         for pkg in args.pkgs:
             collect(pkg, args)
 
