@@ -12,6 +12,7 @@
 from .common import Extractor, Message, Dispatch
 from .. import text, util
 import itertools
+import json
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?instagram\.com"
 USER_PATTERN = BASE_PATTERN + r"/(?!(?:p|tv|reel|explore|stories)/)([^/?#]+)"
@@ -56,6 +57,7 @@ class InstagramExtractor(Extractor):
         # whole run. None = not looked up yet, "" = looked up and not found.
         self._post_doc_id = None
         self._post_doc_flags = {}
+        self._post_pages = {}
 
         self.cookies.set(
             "csrftoken", self.csrf_token, domain=self.cookies_domain)
@@ -1296,12 +1298,23 @@ class InstagramAPI():
                     "instagram REST media() failed for %s (%s); "
                     "falling back to doc_id GraphQL", shortcode, exc)
 
-        # FALLBACK: the same GraphQL query the web client itself runs for a post
-        # page, PolarisPostRootQuery. Its doc_id is discovered from the post's
-        # own HTML rather than hardcoded, so it cannot go stale (see
-        # _discover_post_doc_id); _POST_DOC_ID is only the last-resort pin.
         sc = shortcode_from_id(shortcode) if shortcode.isdigit() else (
             shortcode[:-28] if len(shortcode) > 28 else shortcode)
+
+        # FIRST FALLBACK: the post page itself. Its HTML is server-rendered with
+        # the very payload PolarisPostRootQuery would return, which is how a
+        # browser shows a post while the GraphQL POST below is being bounced
+        # to the home page (2026-10-29: refused after ~25 posts in 35 min,
+        # profile queries on the same session still answered). The page is
+        # fetched anyway to discover the doc_id, so this costs no request.
+        items = self._post_page_items(sc)
+        if items:
+            return items
+
+        # LAST FALLBACK: the same GraphQL query the web client itself runs for a
+        # post page, PolarisPostRootQuery. Its doc_id is discovered from the
+        # post's own HTML rather than hardcoded, so it cannot go stale (see
+        # _discover_post_doc_id); _POST_DOC_ID is only the last-resort pin.
         doc_id = self._discover_post_doc_id(sc) or _POST_DOC_ID
         # The relay provider flags are not optional padding: omit one and the
         # query is rejected outright ('execution error', HTTP 200, ~90 bytes,
@@ -1383,9 +1396,17 @@ class InstagramAPI():
         doc_id = self.extractor._post_doc_id
         if doc_id is not None:
             return doc_id or None
+        self._learn_doc_id(self._post_page(shortcode), shortcode)
+        return self.extractor._post_doc_id or None
 
+    def _post_page(self, shortcode):
+        # One fetch per shortcode per run; "" on failure, so callers just
+        # find nothing in it.
+        cache = self.extractor._post_pages
+        if shortcode in cache:
+            return cache[shortcode]
         try:
-            response = self.extractor.request(
+            page = self.extractor.request(
                 f"https://www.instagram.com/p/{shortcode}/", headers={
                     "Accept": "text/html,application/xhtml+xml,application/xml;"
                               "q=0.9,*/*;q=0.8",
@@ -1394,19 +1415,62 @@ class InstagramAPI():
                     "Sec-Fetch-Site": "none",
                     "Sec-Fetch-User": "?1",
                     "Upgrade-Insecure-Requests": "1",
-                })
-            match = _POST_DOC_ID_RE(response.text)
-            doc_id = match[1] if match else ""
-            if match:
+                }).text
+        except Exception as exc:
+            self.extractor.log.debug(
+                "instagram post page fetch failed for %s (%s)", shortcode, exc)
+            page = ""
+        # Only the latest page is kept: a profile run can fall back here for
+        # many posts, and each page is ~1 MB.
+        cache.clear()
+        cache[shortcode] = page
+        return page
+
+    def _post_page_items(self, shortcode):
+        # The page embeds the PolarisPostRootQuery result as
+        #   "xdt_api__v1__media__shortcode__web_info":{"items":[...]}
+        # — REST shape, so items() routes it to _parse_post_rest. Other posts
+        # (related grid) can share the page, hence the match on 'code' — by
+        # prefix, because a private account's post carries the long shortcode
+        # (11 chars + 28) there while the URL handling has cut it to 11.
+        page = self._post_page(shortcode)
+        if self.extractor._post_doc_id is None:
+            self._learn_doc_id(page, shortcode)
+
+        key = '"xdt_api__v1__media__shortcode__web_info":'
+        decoder = json.JSONDecoder()
+        pos = page.find(key)
+        while pos != -1:
+            try:
+                info, _ = decoder.raw_decode(page, pos + len(key))
+            except ValueError:
+                info = None
+            if isinstance(info, dict):
+                items = [item for item in info.get("items") or ()
+                         if (item.get("code") or "").startswith(shortcode)]
+                if items:
+                    self.extractor.log.debug(
+                        "instagram post %s read from its page; GraphQL "
+                        "skipped", shortcode)
+                    return items
+            pos = page.find(key, pos + len(key))
+        return None
+
+    def _learn_doc_id(self, page, shortcode):
+        doc_id = ""
+        match = _POST_DOC_ID_RE(page)
+        if match:
+            doc_id = match[1]
+            try:
                 self.extractor._post_doc_flags = {
                     key: value
                     for key, value in util.json_loads(match[2]).items()
                     if key.startswith("__relay_internal__pv__")
                 }
-        except Exception as exc:
-            self.extractor.log.debug(
-                "instagram doc_id discovery failed for %s (%s)", shortcode, exc)
-            doc_id = ""
+            except ValueError as exc:
+                self.extractor.log.debug(
+                    "instagram relay flags unreadable for %s (%s)",
+                    shortcode, exc)
 
         if doc_id:
             self.extractor.log.debug(
