@@ -101,7 +101,34 @@ class ThreadsExtractor(Extractor):
     # overridable via the 'user-agent' config option; not pinned here.
     # request_interval is the per-request spacing default — Threads/Meta
     # throttle aggressively, so keep it polite (override via 'sleep-request').
-    request_interval = (4.0, 8.0)
+    request_interval = (6.0, 12.0)
+
+    def request(self, url, **kwargs):
+        # Same guard as InstagramExtractor.request(): Meta answers a blocked or
+        # logged-out session with a 302 to the login/challenge/home page and a
+        # 200 HTML body. Without this, a mid-run block surfaces as a JSON parse
+        # error (or a silent end) instead of naming the real cause.
+        response = Extractor.request(self, url, **kwargs)
+
+        if response.history:
+            url = response.url
+            path = url.partition("?")[0]
+            if "/login" in path or "/accounts/login/" in path:
+                page = "login"
+            elif "/challenge/" in path or "/checkpoint/" in path:
+                page = "challenge"
+            elif path.rstrip("/") in (self.root, "https://www.threads.net"):
+                page = "home"
+            else:
+                page = None
+
+            if page is not None:
+                raise self.exc.AbortExtraction(
+                    f"HTTP redirect to {page} page ({path}) — session "
+                    "blocked or expired; re-export the '.threads.com' "
+                    "cookies and/or raise 'sleep-request'")
+
+        return response
 
     def _init(self):
         self._cursor = self.config("cursor", None)
